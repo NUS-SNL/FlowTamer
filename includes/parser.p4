@@ -22,12 +22,11 @@ enum bit<8> ipv4_proto_t {
 parser SwitchIngressParser(
     packet_in pkt,
     out header_t hdr,
-    out metadata_t meta,
+    out empty_metadata_t meta,
     out ingress_intrinsic_metadata_t ig_intr_md,
     out ingress_intrinsic_metadata_for_tm_t ig_intr_md_for_tm,
     out ingress_intrinsic_metadata_from_parser_t ig_intr_md_from_prsr){
 
-    Checksum() tcp_checksum;
 	state start {
         pkt.extract(ig_intr_md);
         pkt.advance(PORT_METADATA_SIZE); // macro defined in tofino.p4
@@ -45,13 +44,71 @@ parser SwitchIngressParser(
 
 	state parse_ipv4 {
 		pkt.extract(hdr.ipv4);
+		transition select(hdr.ipv4.protocol){
+			(bit<8>) ipv4_proto_t.TCP: parse_tcp;
+		    default: accept;
+		}
+	}
+
+	state parse_arp {
+		pkt.extract(hdr.arp);
+		transition accept;
+	}
+
+	state parse_tcp {
+		pkt.extract(hdr.tcp);
+		transition accept;
+	}
+}
+
+
+// ---------------------------------------------------------------------------
+// Ingress Deparser
+// ---------------------------------------------------------------------------
+control SwitchIngressDeparser(
+        packet_out pkt,
+        inout header_t hdr,
+        in empty_metadata_t meta,
+        in ingress_intrinsic_metadata_for_deparser_t ig_dprsr_md) {
+    apply {
+        pkt.emit(hdr);
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// Egress parser
+// ---------------------------------------------------------------------------
+parser SwitchEgressParser(
+    packet_in pkt,
+    out header_t hdr,
+    out metadata_t meta,
+    out egress_intrinsic_metadata_t eg_intr_md,
+    out egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
+
+    Checksum() tcp_checksum;
+    state start {
+        pkt.extract(eg_intr_md);
+        transition parse_ethernet;
+    }
+
+    state parse_ethernet {
+		pkt.extract(hdr.ethernet);
+		transition select(hdr.ethernet.ether_type){
+			(bit<16>) ether_type_t.IPV4: parse_ipv4;
+			(bit<16>) ether_type_t.ARP: parse_arp;
+			default: accept;
+		}
+	}
+
+	state parse_ipv4 {
+		pkt.extract(hdr.ipv4);
         tcp_checksum.subtract({
             hdr.ipv4.src_addr,
             hdr.ipv4.dst_addr,
             8w0, hdr.ipv4.protocol });
 		transition select(hdr.ipv4.protocol){
 			(bit<8>) ipv4_proto_t.TCP: parse_tcp;
-			(bit<8>) ipv4_proto_t.UDP: parse_udp;
 		    default: accept;
 		}
 	}
@@ -75,22 +132,18 @@ parser SwitchIngressParser(
         meta.l4_payload_checksum = tcp_checksum.get();
 		transition accept;
 	}
-
-	state parse_udp {
-		pkt.extract(hdr.udp);
-		transition accept;
-	}
 }
 
-
 // ---------------------------------------------------------------------------
-// Ingress Deparser
+// Egress Deparser
 // ---------------------------------------------------------------------------
-control SwitchIngressDeparser(
-        packet_out pkt,
-        inout header_t hdr,
-        in metadata_t meta,
-        in ingress_intrinsic_metadata_for_deparser_t ig_dprsr_md) {
+control SwitchEgressDeparser(
+    packet_out pkt,
+    inout header_t hdr,
+    in metadata_t meta,
+    in egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
+    in egress_intrinsic_metadata_t eg_intr_md,
+    in egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
 
     Checksum() ipv4_checksum;
     Checksum() tcp_checksum;
@@ -123,54 +176,5 @@ control SwitchIngressDeparser(
         pkt.emit(hdr);
     }
 }
-
-
-// ---------------------------------------------------------------------------
-// Egress parser
-// ---------------------------------------------------------------------------
-parser SwitchEgressParser(
-    packet_in pkt,
-    out header_t hdr,
-    out metadata_t meta,
-    out egress_intrinsic_metadata_t eg_intr_md,
-    out egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
-
-    state start {
-        pkt.extract(eg_intr_md);
-        transition parse_ethernet;
-    }
-
-    state parse_ethernet {
-    	pkt.extract(hdr.ethernet);
-    	transition accept;
-    }
-
-    // do more stuff here if needed
-}
-
-// ---------------------------------------------------------------------------
-// Egress Deparser
-// ---------------------------------------------------------------------------
-control SwitchEgressDeparser(
-    packet_out pkt,
-    inout header_t hdr,
-    in metadata_t meta,
-    in egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
-    in egress_intrinsic_metadata_t eg_intr_md,
-    in egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
-
-	apply{
-        // do more stuff here if needed
-
-		pkt.emit(hdr);
-	}
-
-}
-
-
-
-
-
-
 
 #endif

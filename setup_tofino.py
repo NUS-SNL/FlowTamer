@@ -13,9 +13,9 @@ elif hostname == 'tofino1c':
     fp_ports = [31]
 
 for fp_port in fp_ports:
-        for lane in range(4):
-            dp = bfrt.port.port_hdl_info.get(conn_id=fp_port, chnl_id=lane, print_ents=False).data[b'$DEV_PORT']
-            bfrt.port.port.add(dev_port=dp, speed='BF_SPEED_10G', fec='BF_FEC_TYP_NONE', auto_negotiation='PM_AN_FORCE_DISABLE', port_enable=True)
+    for lane in range(4):
+        dp = bfrt.port.port_hdl_info.get(conn_id=fp_port, chnl_id=lane, print_ents=False).data[b'$DEV_PORT']
+        bfrt.port.port.add(dev_port=dp, speed='BF_SPEED_10G', fec='BF_FEC_TYP_NONE', auto_negotiation='PM_AN_FORCE_DISABLE', port_enable=True)
 
 # Add entries to the l2_forward table
 l2_forward = bfrt.internet_cc.pipe.SwitchIngress.l2_forward

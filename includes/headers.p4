@@ -71,4 +71,7 @@ struct metadata_t {
     bit<16> l4_payload_checksum;
 }
 
+struct empty_metadata_t {
+
+}
 #endif
