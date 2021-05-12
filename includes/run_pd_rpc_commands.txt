@@ -1,0 +1,51 @@
+
+
+########   Queue rate limiting   ########
+
+# enable it
+tm.enable_q_max_shaping_rate(port=128,q=0)
+
+# set the rate
+tm.set_q_shaping_rate(port=128,q=0,pps=False,burstsize=1500,rate=100000) 
+
+
+
+
+## Port rate limiting
+tm.set_port_shaping_rate(port=128, pps=False, burstsize=1500, rate=1000000, dev=0)  # 1 Gbps 
+tm.enable_port_shaping(port=128, dev=0) # rate is in terms of Kbps
+
+
+# get queue's current sizing policy: base_use, pool_assignment, dynamic_baf 
+tm.get_q_app_pool_usage(port,queue) 
+
+
+# Get queue's current usage. wm is watermark value which is max usage ever reached
+# Related C API not mapped to run_pd_rpc: bf_tm_q_watermark_clear()
+tm.get_q_usage(logical_pipe_id, port, queue)
+
+
+
+tm.set_q_app_pool_usage(port, q, pool, base_use_limit, dynamic_baf, hyst)
+
+
+# Check queue's guaranteed min limit
+tm.get_q_guaranteed_min_limit(port, queue)
+
+
+
+
+
+
+
+# Set static limit on queue size
+# step 1: disable queue participation in app pool. q's guaranteed min limits are used. Queue tail drop can occur.
+tm.disable_q_app_pool_usage(port, queue)
+# step 2: set the queue's guaranteed min limit
+tm.set_q_guaranteed_min_limit(port, queue, cells)
+
+
+
+
+
+

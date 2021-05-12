@@ -1,0 +1,28 @@
+ucli
+pm
+port-add 31/- 10G NONE
+an-set 31/- 2
+port-enb 31/-
+..
+end
+bfrt_python
+bfrt
+
+
+basic_switching_p4_16.pipe.SwitchIngress.l2_forward.add_with_forward(dst_addr=0x6cb3115309b0, port=128)
+basic_switching_p4_16.pipe.SwitchIngress.l2_forward.add_with_forward(dst_addr=0x6cb3115309b2, port=129)
+basic_switching_p4_16.pipe.SwitchIngress.l2_forward.add_with_forward(dst_addr=0x6cb31153099c, port=130)
+
+
+active_dev_ports = [128,129,130]
+bfrt.pre.node.add(multicast_node_id=0, multicast_rid=0, multicast_lag_id=[], dev_port=active_dev_ports)
+
+bfrt.pre.mgid.add(mgid=1, multicast_node_id=[0], multicast_node_l1_xid_valid=[False], multicast_node_l1_xid=[0])
+
+iperf3 -s
+iperf3 -c 10.1.1.2 -J --logfile result.json
+sysctl net.ipv4.tcp_available_congestion_control
+find /lib/modules/$(uname -r) -type f -name '*.ko' | grep tcp_
+sudo sysctl net.ipv4.tcp_congestion_control=<cc>
+screen -XS 20411 quit
+screen -ls
