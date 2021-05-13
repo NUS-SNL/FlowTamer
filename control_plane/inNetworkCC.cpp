@@ -22,6 +22,8 @@ extern "C" {
 }
 #endif
 
+#include "runtimeCC.hpp"
+
 
 /* 
  * Convenient defines that reflect SDE conventions
@@ -72,25 +74,37 @@ bf_switchd_context_t* init_switchd(){
 }
 
 /* Your great NOS runtime goes here */
-int app_run(bf_switchd_context_t *switchd_ctx)
+bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
 {
     (void) switchd_ctx;
+    int returnVal;
     
     /* Adding ports and one-time config (whichever possible) via bfrt_python */
     printf("\n\nConfiguring via bfrt_python script...\n");
     fflush(stdout);
     std::string bfshell_cmd = BFSHELL " -b " __DIR__ "/../setup_tofino.py";
-    system(bfshell_cmd.c_str());
+    returnVal = system(bfshell_cmd.c_str());
+    if(returnVal == 0)
+        printf("Successfully configured via bfrt_python script\n");
 
     /* PD-fixed one-time config (whichever possible) via run_pd_rpc */
     printf("\n\nConfiguring via run_pd_rpc script...\n");
     fflush(stdout);
     std::string run_pd_rpc_cmd = "env SDE_INSTALL=" SDE_INSTALL " " RUN_PD_RPC " " __DIR__ "/../set_rate.py";
-    system(run_pd_rpc_cmd.c_str());
+    returnVal = system(run_pd_rpc_cmd.c_str());
+    if(returnVal == 0)
+        printf("Successfully configured via run_pd_rpc script\n");
 
     /* Run Indefinitely */
-    printf("Running the CP app...\n");
+    printf("\n\nRunning the CP app...\n");
+
+    inNetworkCCRuntime();
+
+    printf("\n\nFinished inNetworkCCRuntime...\n");
+
     while (true) { sleep(1); }
+
+    return BF_SUCCESS;
 
 }
 
