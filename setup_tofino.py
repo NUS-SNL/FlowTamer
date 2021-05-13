@@ -18,7 +18,7 @@ for fp_port in fp_ports:
         bfrt.port.port.add(dev_port=dp, speed='BF_SPEED_10G', fec='BF_FEC_TYP_NONE', auto_negotiation='PM_AN_FORCE_DISABLE', port_enable=True)
 
 # Add entries to the l2_forward table
-l2_forward = bfrt.internet_cc.pipe.SwitchIngress.l2_forward
+l2_forward = bfrt.inNetworkCC.pipe.SwitchIngress.l2_forward
 if hostname == 'tofino1b':
     l2_forward.add_with_forward(dst_addr=0x6cb3115309b0, port=128)
     l2_forward.add_with_forward(dst_addr=0x6cb3115309b2, port=129)
