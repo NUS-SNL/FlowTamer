@@ -1,0 +1,7 @@
+*.o
+*.d
+*.tofino
+*.tofino2
+zlog-cfg-cur
+bf_drivers.log
+inNetworkCC
