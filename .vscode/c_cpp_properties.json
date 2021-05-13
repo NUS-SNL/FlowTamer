@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${SDE_INSTALL}/**"
+            ],
+            "defines": [
+                "SDE_INSTALL=\"${SDE_INSTALL}\"",
+                "PROG_NAME=\"inNetworkCC\"",
+                "__DIR__=\"${workspaceFolder}\""
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-clang-x64"
+        }
+    ],
+    "version": 4
+}
