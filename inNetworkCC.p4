@@ -61,9 +61,9 @@ control SwitchEgressControl(
 
 	bit<16> rwnd;
 	bit<1> v;	
-	Register<bit<1>, bit<1>>(1) working_copy_index;
-    RegisterAction<bit<1>, bit<1>, bit<1>>(working_copy_index)
-    get_working_copy_index = { 
+	Register<bit<1>, bit<1>>(1) working_copy;
+    RegisterAction<bit<1>, bit<1>, bit<1>>(working_copy)
+    get_working_copy = { 
         void apply(inout bit<1> register_data, out bit<1> result){
 			result = register_data; 
         }
@@ -75,6 +75,20 @@ control SwitchEgressControl(
 			result = register_data; 
         }
     };
+	Register<bit<32>, bit<8>>(256) sum_eg_deq_qdepth0;
+	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_eg_deq_qdepth0)
+	store_sum_eg_deq_qdepth0 = { 
+		void apply(inout bit<32> register_data){
+			register_data = register_data + (bit<32>)eg_intr_md.deq_qdepth;
+		}
+	};
+	Register<bit<32>, bit<8>>(256) pkt_count0;
+	RegisterAction<bit<32>, bit<8>, bit<32>>(pkt_count0)
+	store_pkt_count0 = { 
+		void apply(inout bit<32> register_data){
+			register_data = register_data + 1;
+		}
+	};
 	Register<bit<32>, bit<8>>(256) sum_eg_deq_qdepth1;
 	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_eg_deq_qdepth1)
 	store_sum_eg_deq_qdepth1 = { 
@@ -82,36 +96,22 @@ control SwitchEgressControl(
 			register_data = register_data + (bit<32>)eg_intr_md.deq_qdepth;
 		}
 	};
-	Register<bit<32>, bit<8>>(256) sum_pkt_count1;
-	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_pkt_count1)
-	store_sum_pkt_count1 = { 
-		void apply(inout bit<32> register_data){
-			register_data = register_data + 1;
-		}
-	};
-	Register<bit<32>, bit<8>>(256) sum_eg_deq_qdepth2;
-	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_eg_deq_qdepth2)
-	store_sum_eg_deq_qdepth2 = { 
-		void apply(inout bit<32> register_data){
-			register_data = register_data + (bit<32>)eg_intr_md.deq_qdepth;
-		}
-	};
-	Register<bit<32>, bit<8>>(256) sum_pkt_count2;
-	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_pkt_count2)
-	store_sum_pkt_count2 = { 
+	Register<bit<32>, bit<8>>(256) pkt_count1;
+	RegisterAction<bit<32>, bit<8>, bit<32>>(pkt_count1)
+	store_pkt_count1 = { 
 		void apply(inout bit<32> register_data){
 			register_data = register_data + 1;
 		}
 	};	
 
 	apply{
-		v = get_working_copy_index.execute(0);
+		v = get_working_copy.execute(0);
 		if(v == 0){
-			store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
-			store_sum_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
+			store_sum_eg_deq_qdepth0.execute(eg_intr_md.egress_port[7:0]);
+			store_pkt_count0.execute(eg_intr_md.egress_port[7:0]);
 		} else {
-			store_sum_eg_deq_qdepth2.execute(eg_intr_md.egress_port[7:0]);
-			store_sum_pkt_count2.execute(eg_intr_md.egress_port[7:0]);
+			store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
+			store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
 		}
 		if(hdr.tcp.isValid()){
 			rwnd = get_new_rwnd.execute(0);
