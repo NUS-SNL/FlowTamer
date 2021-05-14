@@ -10,11 +10,12 @@
 
 #include "runtimeCC.hpp"
 #include "utils.hpp"
+#include "types.hpp"
 
 #define DEV_TGT_ALL_PIPES 0xFFFF
 #define DEV_TGT_ALL_PARSERS 0xFF
 
-
+#define BF_TM_CELL_SIZE_BYTES 80
 
 /* 
     BfRt Global Variables 
@@ -34,6 +35,13 @@ DECLARE_BFRT_TABLE_VARS(sum_eg_deq_qdepth0)
 DECLARE_BFRT_TABLE_VARS(sum_eg_deq_qdepth1)
 DECLARE_BFRT_TABLE_VARS(pkt_count0)
 DECLARE_BFRT_TABLE_VARS(pkt_count1)
+
+/* 
+    inNetworkCC State Variables with initial values
+*/
+working_copy_t curr_working_copy = 0;
+rwnd_t curr_rwnd = 65535;
+qdepth_t thresh_low, thresh_high; // bytes
 
 /* 
 // Register working_copy
@@ -138,16 +146,101 @@ void initBfRtTablesRegisters(){
     INIT_BFRT_REG_VARS(SwitchEgressControl, pkt_count0, status)
     INIT_BFRT_REG_VARS(SwitchEgressControl, pkt_count1, status)
 
+    // working_copy register index is always going to be zero
+    status = working_copy_key->setValue(working_copy_key_id, static_cast<uint64_t>(0));
+    CHECK_BF_STATUS(status);
+
 }
 
 
+/* Updates the working copy bit in the dataplane */
+bf_status_t set_working_copy(working_copy_t newValue){
+
+    bf_status_t status;
+
+    status = working_copy_data->setValue(working_copy_data_id, static_cast<uint64_t>(newValue));
+    CHECK_BF_STATUS(status);
+
+    // working_copy_key is already set to 0
+    status = working_copy->tableEntryMod(*session, dev_tgt, *working_copy_key, *working_copy_data);
+
+    return status;
+
+}
+
+/* Updates the rwnd in the dataplane */
+bf_status_t set_rwnd(port_t ingressPort, rwnd_t newRwnd){
+    
+    bf_status_t status;
+
+    status = new_rwnd_key->setValue(new_rwnd_key_id, static_cast<uint64_t>(ingressPort));
+    CHECK_BF_STATUS(status);
+
+    status = new_rwnd_data->setValue(new_rwnd_data_id, static_cast<uint64_t>(newRwnd));
+    CHECK_BF_STATUS(status);
+
+    status = new_rwnd->tableEntryMod(*session, dev_tgt, *new_rwnd_key, *new_rwnd_data); 
+
+    return status;
+}
+
+bf_status_t update_working_copy(){
+    bf_status_t status;
+
+    working_copy_t newValue = (curr_working_copy + 1) % 2;
+
+    status = set_working_copy(newValue);
+    CHECK_BF_STATUS(status);
+
+    // if CHECK_BF_STATUS does not exit the program,
+    // it means it has succeeded
+    curr_working_copy = newValue;
+
+    return BF_SUCCESS;
+
+}
+
 void inNetworkCCRuntime(){
+
+    bf_status_t status;
 
     initBfRt();
     printf("\n\nFinished initBfRt");
-    fflush(stdout);
+    
     initBfRtTablesRegisters();
     printf("\n\nFinished initBfRtTablesRegisters");
-    fflush(stdout);
+
+    rwnd_t rwnd = 65535;
+    port_t port = 129;
+    
+    status = set_rwnd(port, rwnd);CHECK_BF_STATUS(status);
+    printf("Set rwnd for port %d to %d. Press any key to continue...\n", port, rwnd); 
+    getchar();
+
+    port = 128;
+    rwnd = 4000;
+
+    status = set_rwnd(port, rwnd);CHECK_BF_STATUS(status);
+    printf("Set rwnd for port %d to %d. Press any key to continue...\n", port, rwnd); 
+    getchar();
+
+    port = 130;
+    rwnd = 5000;
+
+    status = set_rwnd(port, rwnd);CHECK_BF_STATUS(status);
+    printf("Set rwnd for port %d to %d. Press any key to continue...\n", port, rwnd); 
+    getchar();
+
+}
+
+void inNetworkCCAlgo(){
+
+    // Step 1: init the working_copy to 0, initial rwnd
+    // Step 2: Start the infinite loop for each round (interval)
+    // In each round:
+    // - Input: update working copy, read old copy, reset to zero and compute avg qdepth
+    // - Algo: call the algo function with new avg qdepth. Returns new_rwnd
+    // - Output: set the new rwnd in the data plane register
+
 
 }
