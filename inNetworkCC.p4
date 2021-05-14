@@ -68,8 +68,8 @@ control SwitchEgressControl(
 			result = register_data; 
         }
     };
-	Register<bit<16>, bit<1>>(1) new_rwnd;
-    RegisterAction<bit<16>, bit<1>, bit<16>>(new_rwnd)
+	Register<bit<16>, bit<8>>(256) new_rwnd;
+    RegisterAction<bit<16>, bit<8>, bit<16>>(new_rwnd)
     get_new_rwnd = { 
         void apply(inout bit<16> register_data, out bit<16> result){
 			result = register_data; 
