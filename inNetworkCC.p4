@@ -14,12 +14,20 @@ const int MCAST_GRP_ID = 1;
 
 control SwitchIngress(
     inout header_t hdr,
-    inout empty_metadata_t meta,
+    inout metadata_t meta,
     in ingress_intrinsic_metadata_t ig_intr_md,
     in ingress_intrinsic_metadata_from_parser_t ig_intr_md_from_prsr,
     inout ingress_intrinsic_metadata_for_deparser_t ig_intr_md_for_dprsr,
     inout ingress_intrinsic_metadata_for_tm_t ig_intr_md_for_tm){
 
+	bit<16> rwnd;
+	Register<bit<16>, bit<8>>(256) new_rwnd;
+    RegisterAction<bit<16>, bit<8>, bit<16>>(new_rwnd)
+    get_new_rwnd = { 
+        void apply(inout bit<16> register_data, out bit<16> result){
+			result = register_data; 
+        }
+    };
 	action miss(bit<3> drop_bits) {
 		ig_intr_md_for_dprsr.drop_ctl = drop_bits;
 	}
@@ -46,6 +54,12 @@ control SwitchIngress(
 			}
 			else { l2_forward.apply(); }
 		}
+		if(hdr.tcp.isValid()){
+			rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
+			if(rwnd!=0){ // if we see zero rwnd then we don't do any rwnd adjustment
+				hdr.tcp.window = (hdr.tcp.window < rwnd) ? hdr.tcp.window : rwnd;
+			}
+		}
 	}
 
 }  // End of SwitchIngressControl
@@ -53,25 +67,17 @@ control SwitchIngress(
 
 control SwitchEgressControl(
     inout header_t hdr,
-    inout metadata_t meta,
+    inout empty_metadata_t meta,
     in egress_intrinsic_metadata_t eg_intr_md,
     in egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr,
     inout egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
     inout egress_intrinsic_metadata_for_output_port_t eg_intr_md_for_oport){
 
-	bit<16> rwnd;
 	bit<1> v;	
 	Register<bit<1>, bit<1>>(1) working_copy;
     RegisterAction<bit<1>, bit<1>, bit<1>>(working_copy)
     get_working_copy = { 
         void apply(inout bit<1> register_data, out bit<1> result){
-			result = register_data; 
-        }
-    };
-	Register<bit<16>, bit<8>>(256) new_rwnd;
-    RegisterAction<bit<16>, bit<8>, bit<16>>(new_rwnd)
-    get_new_rwnd = { 
-        void apply(inout bit<16> register_data, out bit<16> result){
 			result = register_data; 
         }
     };
@@ -113,14 +119,6 @@ control SwitchEgressControl(
 			store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
 			store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
 		}
-		if(hdr.tcp.isValid()){
-			rwnd = get_new_rwnd.execute(0);
-			if(rwnd!=0 && eg_intr_md.egress_port == 128){ // ack going from receiver to sender
-				//hdr.tcp.window = (hdr.tcp.window < rwnd) ? hdr.tcp.window : rwnd;
-				hdr.tcp.window = rwnd;
-			}
-		}
-
 	}
 
 } // End of SwitchEgressControl
