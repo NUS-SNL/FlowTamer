@@ -50,12 +50,12 @@ all: $(OUTPUT_BINARY)
 clean:
 	@$(RM) -rf $(BUILDDIR)
 	@$(RM) $(OUTPUT_BINARY)
-	@$(RM) -rf *.tofino *.tofino2 zlog-cfg-cur bf_drivers.log
+	@$(RM) -rf *.tofino *.tofino2 zlog-cfg-cur bf_drivers.log*
 
 cleaner:
 	@$(RM) -rf $(BASE_BUILDDIR)
 	@$(RM) $(RELEASE_BINARY) $(DEBUG_BINARY)
-	@$(RM) -rf *.tofino *.tofino2 zlog-cfg-cur bf_drivers.log
+	@$(RM) -rf *.tofino *.tofino2 zlog-cfg-cur bf_drivers.log*
 
 $(OUTPUT_BINARY): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) $^ -o $@ $(LDLIBS)
