@@ -14,8 +14,8 @@ elif hostname == 'tofino1c':
 
 for fp_port in fp_ports:
     for lane in range(4):
-        dp = bfrt.port.port_hdl_info.get(conn_id=fp_port, chnl_id=lane, print_ents=False).data[b'$DEV_PORT']
-        bfrt.port.port.add(dev_port=dp, speed='BF_SPEED_10G', fec='BF_FEC_TYP_NONE', auto_negotiation='PM_AN_FORCE_DISABLE', port_enable=True)
+        dp = bfrt.port.port_hdl_info.get(CONN_ID=fp_port, CHNL_ID=lane, print_ents=False).data[b'$DEV_PORT']
+        bfrt.port.port.add(DEV_PORT=dp, SPEED='BF_SPEED_10G', FEC='BF_FEC_TYP_NONE', AUTO_NEGOTIATION='PM_AN_FORCE_DISABLE', PORT_ENABLE=True)
 
 # Add entries to the l2_forward table
 l2_forward = bfrt.inNetworkCC.pipe.SwitchIngress.l2_forward
@@ -31,8 +31,8 @@ elif hostname == 'tofino1c':
 
 # Setup ARP broadcast for the active dev ports
 active_dev_ports = [128, 129, 130, 131]
-bfrt.pre.node.add(multicast_node_id=0, multicast_rid=0, multicast_lag_id=[], dev_port=active_dev_ports)
+bfrt.pre.node.add(MULTICAST_NODE_ID=0, MULTICAST_RID=0, MULTICAST_LAG_ID=[], DEV_PORT=active_dev_ports)
 
-bfrt.pre.mgid.add(mgid=1, multicast_node_id=[0], multicast_node_l1_xid_valid=[False], multicast_node_l1_xid=[0])
+bfrt.pre.mgid.add(MGID=1, MULTICAST_NODE_ID=[0], MULTICAST_NODE_L1_XID_VALID=[False], MULTICAST_NODE_L1_XID=[0])
 
 bfrt.complete_operations()
