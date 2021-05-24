@@ -17,6 +17,12 @@ for fp_port in fp_ports:
         dp = bfrt.port.port_hdl_info.get(CONN_ID=fp_port, CHNL_ID=lane, print_ents=False).data[b'$DEV_PORT']
         bfrt.port.port.add(DEV_PORT=dp, SPEED='BF_SPEED_10G', FEC='BF_FEC_TYP_NONE', AUTO_NEGOTIATION='PM_AN_FORCE_DISABLE', PORT_ENABLE=True)
 
+# Add CPU Ethernet ports separately
+if hostname == 'tofino1b' or hostname == 'tofino1c':  
+    for lane in range(4):
+        dp = bfrt.port.port_hdl_info.get(CONN_ID=33, CHNL_ID=lane, print_ents=False).data[b'$DEV_PORT']
+        bfrt.port.port.add(DEV_PORT=dp, SPEED='BF_SPEED_10G', FEC='BF_FEC_TYP_NONE', PORT_ENABLE=True)
+
 # Add entries to the l2_forward table
 l2_forward = bfrt.inNetworkCC.pipe.SwitchIngress.l2_forward
 if hostname == 'tofino1b':
