@@ -45,7 +45,15 @@ header tcp_h {
     bit<32> ack_no;
     bit<4> data_offset;
     bit<4> res;
-    bit<8> flags;
+    // bit<8> flags;
+    bit<1> cwr;
+    bit<1> ece;
+    bit<1> urg;
+    bit<1> ack;
+    bit<1> psh;
+    bit<1> rst;
+    bit<1> syn;
+    bit<1> fin;
     bit<16> window;
     bit<16> checksum;
     bit<16> urgent_ptr;
@@ -58,8 +66,41 @@ header udp_h {
     bit<16> checksum;
 }
 
+// internal hdr to indicate normal, bridged, 
+// ig_mirrored, eg_mirrored pkts to egress parser
+
+typedef bit<4> internal_hdr_type_t;
+typedef bit<4> internal_hdr_info_t;
+
+const internal_hdr_type_t INTERNAL_HDR_TYPE_BRIDGED_META = 0xA;
+const internal_hdr_type_t INTERNAL_HDR_TYPE_IG_MIRROR = 0xB;
+const internal_hdr_type_t INTERNAL_HDR_TYPE_EG_MIRROR = 0xC;
+
+/* Mirror Types */
+const bit<3> EG_PORT_MIRROR1 = 1; // corresponds to eg_mirror1_h
+
+
+#define INTERNAL_HEADER           \
+    internal_hdr_type_t type; \
+    internal_hdr_info_t info
+
+
+header internal_hdr_h {
+    INTERNAL_HEADER;
+}
+
+header bridged_meta_h {
+    INTERNAL_HEADER;
+    /* Add any metadata to be bridged from ig to eg */
+}
+
+header eg_mirror1_h {
+    INTERNAL_HEADER;
+    bit<48> eg_global_ts;
+}
 
 struct header_t {
+    bridged_meta_h bridged_meta;
 	ethernet_h ethernet;
 	ipv4_h ipv4;
     arp_h arp;
@@ -67,11 +108,17 @@ struct header_t {
 	udp_h udp;
 }
 
-struct metadata_t {
+struct ingress_metadata_t {
     bit<16> l4_payload_checksum;
 }
 
-struct empty_metadata_t {
-
+struct egress_metadata_t {
+    bridged_meta_h bridged;
+    eg_mirror1_h eg_mirror1;
+    MirrorId_t mirror_session;
+    internal_hdr_type_t internal_hdr_type;
+    internal_hdr_info_t internal_hdr_info;
 }
+
+
 #endif

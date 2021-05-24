@@ -11,10 +11,13 @@
 
 const int MCAST_GRP_ID = 1;
 
+const PortId_t CPU_ETHERNET_PORT_1 = 64;
+const PortId_t CPU_ETHERNET_PORT_2 = 66;
+
 
 control SwitchIngress(
     inout header_t hdr,
-    inout metadata_t meta,
+    inout ingress_metadata_t ig_meta,
     in ingress_intrinsic_metadata_t ig_intr_md,
     in ingress_intrinsic_metadata_from_parser_t ig_intr_md_from_prsr,
     inout ingress_intrinsic_metadata_for_deparser_t ig_intr_md_for_dprsr,
@@ -45,7 +48,10 @@ control SwitchIngress(
 		}
 		const default_action = miss(0x1);
 	}
+
+
 	apply {
+		// TODO: add the bridged_meta hdr by default for all packets
 		if(hdr.ethernet.isValid()){
 			if(hdr.ethernet.ether_type == (bit<16>) ether_type_t.ARP){
 				// do the broadcast to all involved ports
@@ -67,7 +73,7 @@ control SwitchIngress(
 
 control SwitchEgressControl(
     inout header_t hdr,
-    inout empty_metadata_t meta,
+    inout egress_metadata_t eg_meta,
     in egress_intrinsic_metadata_t eg_intr_md,
     in egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr,
     inout egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
@@ -109,6 +115,14 @@ control SwitchEgressControl(
 			register_data = register_data + 1;
 		}
 	};	
+
+
+	// TODO for enabling mirroring
+	// Set eg_intr_md_for_dprsr.mirror_type = EG_PORT_MIRROR1
+	// Set eg_meta.mirror_session = 1
+	// Set eg_meta.internal_hdr_type = INTERNAL_HDR_TYPE_EG_MIRROR, 
+    // Set eg_meta.internal_hdr_info = 1,
+	// Remove the bridged_meta hdr or the eg_mirror1 hdr
 
 	apply{
 		v = get_working_copy.execute(0);

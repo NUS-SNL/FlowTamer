@@ -22,7 +22,7 @@ enum bit<8> ipv4_proto_t {
 parser SwitchIngressParser(
     packet_in pkt,
     out header_t hdr,
-    out metadata_t meta,
+    out ingress_metadata_t ig_meta,
     out ingress_intrinsic_metadata_t ig_intr_md,
     out ingress_intrinsic_metadata_for_tm_t ig_intr_md_for_tm,
     out ingress_intrinsic_metadata_from_parser_t ig_intr_md_from_prsr){
@@ -67,11 +67,19 @@ parser SwitchIngressParser(
             hdr.tcp.dst_port,
             hdr.tcp.seq_no,
             hdr.tcp.ack_no,
-            hdr.tcp.data_offset, hdr.tcp.res, hdr.tcp.flags,
+            hdr.tcp.data_offset, hdr.tcp.res, 
+            hdr.tcp.cwr,
+            hdr.tcp.ece,
+            hdr.tcp.urg,
+            hdr.tcp.ack,
+            hdr.tcp.psh,
+            hdr.tcp.rst,
+            hdr.tcp.syn,
+            hdr.tcp.fin,
             hdr.tcp.window,
             hdr.tcp.checksum,
             hdr.tcp.urgent_ptr });
-        meta.l4_payload_checksum = tcp_checksum.get();        
+        ig_meta.l4_payload_checksum = tcp_checksum.get();        
 		transition accept;
 	}
 }
@@ -83,7 +91,7 @@ parser SwitchIngressParser(
 control SwitchIngressDeparser(
         packet_out pkt,
         inout header_t hdr,
-        in metadata_t meta,
+        in ingress_metadata_t ig_meta,
         in ingress_intrinsic_metadata_for_deparser_t ig_dprsr_md) {
 
     Checksum() tcp_checksum;    
@@ -96,10 +104,18 @@ control SwitchIngressDeparser(
             hdr.tcp.dst_port,
             hdr.tcp.seq_no,
             hdr.tcp.ack_no,
-            hdr.tcp.data_offset, hdr.tcp.res, hdr.tcp.flags,
+            hdr.tcp.data_offset, hdr.tcp.res, 
+            hdr.tcp.cwr,
+            hdr.tcp.ece,
+            hdr.tcp.urg,
+            hdr.tcp.ack,
+            hdr.tcp.psh,
+            hdr.tcp.rst,
+            hdr.tcp.syn,
+            hdr.tcp.fin,
             hdr.tcp.window,
             hdr.tcp.urgent_ptr,
-            meta.l4_payload_checksum });        
+            ig_meta.l4_payload_checksum }); 
         pkt.emit(hdr);
     }
 }
@@ -111,13 +127,35 @@ control SwitchIngressDeparser(
 parser SwitchEgressParser(
     packet_in pkt,
     out header_t hdr,
-    out empty_metadata_t meta,
+    out egress_metadata_t eg_meta,
     out egress_intrinsic_metadata_t eg_intr_md,
     out egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
 
+    internal_hdr_h internal_hdr;
+
     state start {
         pkt.extract(eg_intr_md);
+        
+        internal_hdr = pkt.lookahead<internal_hdr_h>();
+        transition select(internal_hdr.type, internal_hdr.info){
+            (INTERNAL_HDR_TYPE_BRIDGED_META, _): parse_bridged_meta;
+            (INTERNAL_HDR_TYPE_EG_MIRROR, 1): parse_eg_mirror1;
+        }
+    }
+
+    state parse_bridged_meta {
+        pkt.extract(eg_meta.bridged);
         transition parse_ethernet;
+    }
+
+    state parse_eg_mirror1 {
+        pkt.extract(eg_meta.eg_mirror1);
+        transition parse_only_ethernet;
+    }
+
+    state parse_only_ethernet {
+		pkt.extract(hdr.ethernet);
+        transition accept;
     }
 
     state parse_ethernet {
@@ -154,12 +192,26 @@ parser SwitchEgressParser(
 control SwitchEgressDeparser(
     packet_out pkt,
     inout header_t hdr,
-    in empty_metadata_t meta,
+    in egress_metadata_t eg_meta,
     in egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
     in egress_intrinsic_metadata_t eg_intr_md,
     in egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
 
+    Mirror() mirror;
+
     apply {
+        
+        if(eg_intr_md_for_dprsr.mirror_type == EG_PORT_MIRROR1){
+            mirror.emit<eg_mirror1_h>(
+                eg_meta.mirror_session,
+                {
+                    eg_meta.internal_hdr_type,
+                    eg_meta.internal_hdr_info,
+                    eg_intr_md_from_prsr.global_tstamp
+                }
+                );
+        }
+
         pkt.emit(hdr);
     }
 }
