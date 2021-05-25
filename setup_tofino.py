@@ -2,6 +2,10 @@ import socket
 
 hostname = socket.gethostname()
 
+
+CPU_ETHERNET_DEV_PORT_ENP4S0F1 = 64
+CPU_ETHERNET_DEV_PORT_ENP4S0F0 = 66
+
 # Configure front-panel ports
 fp_ports = []
 
@@ -41,4 +45,11 @@ bfrt.pre.node.add(MULTICAST_NODE_ID=0, MULTICAST_RID=0, MULTICAST_LAG_ID=[], DEV
 
 bfrt.pre.mgid.add(MGID=1, MULTICAST_NODE_ID=[0], MULTICAST_NODE_L1_XID_VALID=[False], MULTICAST_NODE_L1_XID=[0])
 
+
+""" Setup mirroring """
+bfrt.mirror.cfg.add_with_normal(sid=1, direction='EGRESS', session_enable=True, ucast_egress_port=CPU_ETHERNET_DEV_PORT_ENP4S0F0, ucast_egress_port_valid=1, max_pkt_len=16384)
+
+
 bfrt.complete_operations()
+
+

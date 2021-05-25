@@ -77,7 +77,7 @@ const internal_hdr_type_t INTERNAL_HDR_TYPE_IG_MIRROR = 0xB;
 const internal_hdr_type_t INTERNAL_HDR_TYPE_EG_MIRROR = 0xC;
 
 /* Mirror Types */
-const bit<3> EG_PORT_MIRROR1 = 1; // corresponds to eg_mirror1_h
+const bit<3> EG_MIRROR1 = 1; // corresponds to eg_mirror1_h
 
 
 #define INTERNAL_HEADER           \

@@ -31,8 +31,16 @@ parser SwitchIngressParser(
 	state start {
         pkt.extract(ig_intr_md);
         pkt.advance(PORT_METADATA_SIZE); // macro defined in tofino.p4
-		transition parse_ethernet;
+		transition init_metadata;
 	}
+
+    state init_metadata { // init bridged_meta (based on slide 23 of BA-1122)
+        ig_meta = {0};
+        hdr.bridged_meta.setValid();
+        hdr.bridged_meta.type = INTERNAL_HDR_TYPE_BRIDGED_META;
+        hdr.bridged_meta.info = 0;
+        transition parse_ethernet;
+    }
 
 	state parse_ethernet {
 		pkt.extract(hdr.ethernet);
@@ -201,7 +209,7 @@ control SwitchEgressDeparser(
 
     apply {
         
-        if(eg_intr_md_for_dprsr.mirror_type == EG_PORT_MIRROR1){
+        if(eg_intr_md_for_dprsr.mirror_type == EG_MIRROR1){
             mirror.emit<eg_mirror1_h>(
                 eg_meta.mirror_session,
                 {
@@ -210,7 +218,7 @@ control SwitchEgressDeparser(
                     eg_intr_md_from_prsr.global_tstamp
                 }
                 );
-        }
+        } // end of if
 
         pkt.emit(hdr);
     }

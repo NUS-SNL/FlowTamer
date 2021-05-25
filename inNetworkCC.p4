@@ -51,7 +51,6 @@ control SwitchIngress(
 
 
 	apply {
-		// TODO: add the bridged_meta hdr by default for all packets
 		if(hdr.ethernet.isValid()){
 			if(hdr.ethernet.ether_type == (bit<16>) ether_type_t.ARP){
 				// do the broadcast to all involved ports
@@ -116,23 +115,37 @@ control SwitchEgressControl(
 		}
 	};	
 
-
-	// TODO for enabling mirroring
-	// Set eg_intr_md_for_dprsr.mirror_type = EG_PORT_MIRROR1
-	// Set eg_meta.mirror_session = 1
-	// Set eg_meta.internal_hdr_type = INTERNAL_HDR_TYPE_EG_MIRROR, 
-    // Set eg_meta.internal_hdr_info = 1,
-	// Remove the bridged_meta hdr or the eg_mirror1 hdr
-
 	apply{
-		v = get_working_copy.execute(0);
-		if(v == 0){
-			store_sum_eg_deq_qdepth0.execute(eg_intr_md.egress_port[7:0]);
-			store_pkt_count0.execute(eg_intr_md.egress_port[7:0]);
-		} else {
-			store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
-			store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
-		}
+		
+		if(eg_meta.eg_mirror1.isValid()){ // mirrored pkt
+			// Copy the eg_global_ts as src Eth address
+			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.eg_global_ts;
+			 
+		} // end of mirrored pkt processing
+		else { // normal pkt
+			v = get_working_copy.execute(0);
+			if(v == 0){
+				store_sum_eg_deq_qdepth0.execute(eg_intr_md.egress_port[7:0]);
+				store_pkt_count0.execute(eg_intr_md.egress_port[7:0]);
+			} else {
+				store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
+				store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
+			}
+
+			if(hdr.tcp.isValid() && hdr.tcp.syn == 1){ // either SYN or SYN-ACK
+				/* Mirror the packet */
+				eg_intr_md_for_dprsr.mirror_type = EG_MIRROR1;
+				eg_meta.mirror_session = 1;
+				eg_meta.internal_hdr_type = INTERNAL_HDR_TYPE_EG_MIRROR;
+    			eg_meta.internal_hdr_info = 1;
+			}
+
+		} // end of normal pkt processing
+
+		/* Making sure to remove the bridged_meta before sending on wire */
+		hdr.bridged_meta.setInvalid(); 
+
+		
 	}
 
 } // End of SwitchEgressControl
