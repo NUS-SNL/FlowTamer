@@ -1,0 +1,3 @@
+sudo bash -c "echo 512 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages"
+sudo modprobe uio
+sudo insmod /home/harsh/dpdk-stable-19.11.8/build/kmod/igb_uio.ko

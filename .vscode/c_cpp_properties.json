@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${SDE_INSTALL}/**"
+                "${SDE_INSTALL}/**",
+                "/usr/local/include/pcapplusplus"
             ],
             "defines": [
                 "SDE_INSTALL=\"${SDE_INSTALL}\"",
