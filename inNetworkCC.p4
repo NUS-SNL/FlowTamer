@@ -15,6 +15,20 @@ const PortId_t CPU_ETHERNET_PORT_1 = 64;
 const PortId_t CPU_ETHERNET_PORT_2 = 66;
 
 
+const bit<8> TCP_FLAG_FIN = 1;
+const bit<8> TCP_FLAG_SYN = 2;
+const bit<8> TCP_FLAG_RST = 4;
+const bit<8> TCP_FLAG_PSH = 8;
+const bit<8> TCP_FLAG_ACK = 16;
+
+const tcp_pkt_type_t TCP_PKT_TYPE_SYN     = 1;
+const tcp_pkt_type_t TCP_PKT_TYPE_SYN_ACK = 2;
+const tcp_pkt_type_t TCP_PKT_TYPE_FIN     = 3;
+const tcp_pkt_type_t TCP_PKT_TYPE_FIN_ACK = 4;
+const tcp_pkt_type_t TCP_PKT_TYPE_ACK     = 5;
+const tcp_pkt_type_t TCP_PKT_TYPE_DATA    = 6;
+
+
 control SwitchIngress(
     inout header_t hdr,
     inout ingress_metadata_t ig_meta,
@@ -78,6 +92,10 @@ control SwitchEgressControl(
     inout egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
     inout egress_intrinsic_metadata_for_output_port_t eg_intr_md_for_oport){
 
+	action _nop(){
+
+	}
+
 	bit<1> v;	
 	Register<bit<1>, bit<1>>(1) working_copy;
     RegisterAction<bit<1>, bit<1>, bit<1>>(working_copy)
@@ -113,7 +131,36 @@ control SwitchEgressControl(
 		void apply(inout bit<32> register_data){
 			register_data = register_data + 1;
 		}
-	};	
+	};
+
+
+	action set_tcp_pkt_type(tcp_pkt_type_t pkt_type){
+		eg_meta.tcp_pkt_type = pkt_type;
+	}
+
+	table classify_tcp_pkt{
+		key = {
+			hdr.tcp.flags: ternary;
+			hdr.ipv4.total_len: range;
+		}
+		actions = {
+			set_tcp_pkt_type;
+			_nop;
+		}
+		default_action = _nop;
+		size = 16;
+		const entries = {
+			(TCP_FLAG_SYN, _): set_tcp_pkt_type(TCP_PKT_TYPE_SYN);
+			(TCP_FLAG_SYN + TCP_FLAG_ACK, _): set_tcp_pkt_type(TCP_PKT_TYPE_SYN_ACK);
+			(TCP_FLAG_FIN, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN);
+			(TCP_FLAG_FIN + TCP_FLAG_ACK, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN_ACK);
+			(TCP_FLAG_ACK, 0..80): set_tcp_pkt_type(TCP_PKT_TYPE_ACK);
+			(_, 81..1600): set_tcp_pkt_type(TCP_PKT_TYPE_DATA);
+		}
+	}
+
+
+
 
 	apply{
 		
@@ -123,6 +170,11 @@ control SwitchEgressControl(
 			 
 		} // end of mirrored pkt processing
 		else { // normal pkt
+
+			if(hdr.tcp.isValid()){
+				classify_tcp_pkt.apply();
+			}
+
 			v = get_working_copy.execute(0);
 			if(v == 0){
 				store_sum_eg_deq_qdepth0.execute(eg_intr_md.egress_port[7:0]);
@@ -132,7 +184,9 @@ control SwitchEgressControl(
 				store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
 			}
 
-			if(hdr.tcp.isValid() && hdr.tcp.syn == 1){ // either SYN or SYN-ACK
+
+
+			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN_ACK){ // either SYN or SYN-ACK
 				/* Mirror the packet */
 				eg_intr_md_for_dprsr.mirror_type = EG_MIRROR1;
 				eg_meta.mirror_session = 1;

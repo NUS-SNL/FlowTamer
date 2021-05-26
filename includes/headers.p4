@@ -4,6 +4,7 @@
 typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 
+typedef bit<4> tcp_pkt_type_t;
 
 header ethernet_h {
 	mac_addr_t dst_addr;
@@ -45,15 +46,15 @@ header tcp_h {
     bit<32> ack_no;
     bit<4> data_offset;
     bit<4> res;
-    // bit<8> flags;
-    bit<1> cwr;
+    bit<8> flags;
+ /* bit<1> cwr;
     bit<1> ece;
     bit<1> urg;
     bit<1> ack;
     bit<1> psh;
     bit<1> rst;
     bit<1> syn;
-    bit<1> fin;
+    bit<1> fin; */
     bit<16> window;
     bit<16> checksum;
     bit<16> urgent_ptr;
@@ -118,6 +119,7 @@ struct egress_metadata_t {
     MirrorId_t mirror_session;
     internal_hdr_type_t internal_hdr_type;
     internal_hdr_info_t internal_hdr_info;
+    tcp_pkt_type_t tcp_pkt_type;
 }
 
 
