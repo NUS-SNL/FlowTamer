@@ -201,7 +201,7 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 					uint8_t srcMac[6];
 					ethLayer->getSourceMac().copyTo(srcMac);
 					rtt_t tstmp;
-					tstmp = (srcMac[0]*8*8*8*8*8) + (srcMac[1]*8*8*8*8) + (srcMac[2]*8*8*8) + (srcMac[3]*8*8) + (srcMac[4]*8) + (srcMac[5]);
+					tstmp = ((uint64_t)srcMac[0]*256*256*256*256*256) + ((uint64_t)srcMac[1]*256*256*256*256) + ((uint64_t)srcMac[2]*256*256*256) + ((uint64_t)srcMac[3]*256*256) + ((uint64_t)srcMac[4]*256) + ((uint64_t)srcMac[5]);
 					//printf("%u %u %u %u %u %u\n",*(srcMac), *(srcMac+1), *(srcMac+2), *(srcMac+3), *(srcMac+4), *(srcMac+5));
 					
 					//printf("timestamp: %lu\n", tstmp);
