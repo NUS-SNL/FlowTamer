@@ -5,6 +5,12 @@ typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 
 typedef bit<4> tcp_pkt_type_t;
+const tcp_pkt_type_t TCP_PKT_TYPE_SYN     = 1;
+const tcp_pkt_type_t TCP_PKT_TYPE_SYN_ACK = 2;
+const tcp_pkt_type_t TCP_PKT_TYPE_FIN     = 3;
+const tcp_pkt_type_t TCP_PKT_TYPE_FIN_ACK = 4;
+const tcp_pkt_type_t TCP_PKT_TYPE_ACK     = 5;
+const tcp_pkt_type_t TCP_PKT_TYPE_DATA    = 6;
 
 header ethernet_h {
 	mac_addr_t dst_addr;
@@ -120,6 +126,9 @@ struct egress_metadata_t {
     internal_hdr_type_t internal_hdr_type;
     internal_hdr_info_t internal_hdr_info;
     tcp_pkt_type_t tcp_pkt_type;
+    bit<1> rtt_calc_status;
+    bit<32> expected_seq_no;
+    bit<32> rtt;
 }
 
 

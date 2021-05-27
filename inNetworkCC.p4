@@ -22,14 +22,6 @@ const bit<8> TCP_FLAG_RST = 4;
 const bit<8> TCP_FLAG_PSH = 8;
 const bit<8> TCP_FLAG_ACK = 16;
 
-const tcp_pkt_type_t TCP_PKT_TYPE_SYN     = 1;
-const tcp_pkt_type_t TCP_PKT_TYPE_SYN_ACK = 2;
-const tcp_pkt_type_t TCP_PKT_TYPE_FIN     = 3;
-const tcp_pkt_type_t TCP_PKT_TYPE_FIN_ACK = 4;
-const tcp_pkt_type_t TCP_PKT_TYPE_ACK     = 5;
-const tcp_pkt_type_t TCP_PKT_TYPE_DATA    = 6;
-
-
 control SwitchIngress(
     inout header_t hdr,
     inout ingress_metadata_t ig_meta,
@@ -141,6 +133,15 @@ control SwitchEgressControl(
 	action set_tcp_pkt_type(tcp_pkt_type_t pkt_type){
 		eg_meta.tcp_pkt_type = pkt_type;
 	}
+	action set_SYN_pkt_type_and_expected_seq(){
+		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_SYN; 
+		eg_meta.expected_seq_no = hdr.tcp.seq_no + 1;
+	}
+	action set_ACK_pkt_type_and_expected_seq(){
+		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_ACK; 
+		eg_meta.expected_seq_no = hdr.tcp.seq_no;
+	}
+
 
 	table classify_tcp_pkt{
 		key = {
@@ -149,16 +150,18 @@ control SwitchEgressControl(
 		}
 		actions = {
 			set_tcp_pkt_type;
+			set_SYN_pkt_type_and_expected_seq;
+			set_ACK_pkt_type_and_expected_seq;
 			_nop;
 		}
 		default_action = _nop;
 		size = 16;
 		const entries = {
-			(TCP_FLAG_SYN, _): set_tcp_pkt_type(TCP_PKT_TYPE_SYN);
+			(TCP_FLAG_SYN, _): set_SYN_pkt_type_and_expected_seq();
 			(TCP_FLAG_SYN + TCP_FLAG_ACK, _): set_tcp_pkt_type(TCP_PKT_TYPE_SYN_ACK);
 			(TCP_FLAG_FIN, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN);
 			(TCP_FLAG_FIN + TCP_FLAG_ACK, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN_ACK);
-			(TCP_FLAG_ACK, 0..80): set_tcp_pkt_type(TCP_PKT_TYPE_ACK);
+			(TCP_FLAG_ACK, 0..80): set_ACK_pkt_type_and_expected_seq();
 			(_, 81..1600): set_tcp_pkt_type(TCP_PKT_TYPE_DATA);
 		}
 	}
@@ -177,7 +180,7 @@ control SwitchEgressControl(
 		else { // normal pkt
 
 			if(hdr.tcp.isValid()){
-				classify_tcp_pkt.apply();
+				classify_tcp_pkt.apply(); // also sets eg_meta.expected_seq_no
 			}
 
 			v = get_working_copy.execute(0);
@@ -201,7 +204,9 @@ control SwitchEgressControl(
 
 
 			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_ACK){
-				calculate_rtt(hdr.ipv4, hdr.tcp, eg_meta.tcp_pkt_type, eg_meta.rtt_calc_status);
+				calculate_rtt.apply(hdr.ipv4, hdr.tcp, eg_meta.tcp_pkt_type, 
+				                    eg_meta.expected_seq_no, eg_intr_md_from_prsr.global_tstamp[31:0],
+									eg_meta.rtt, eg_meta.rtt_calc_status);
 			}
 
 		} // end of normal pkt processing
