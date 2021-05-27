@@ -8,6 +8,7 @@
 
 #include "includes/headers.p4"
 #include "includes/parser.p4"
+#include "rtt_calc.p4"
 
 const int MCAST_GRP_ID = 1;
 
@@ -37,11 +38,11 @@ control SwitchIngress(
     inout ingress_intrinsic_metadata_for_deparser_t ig_intr_md_for_dprsr,
     inout ingress_intrinsic_metadata_for_tm_t ig_intr_md_for_tm){
 
-	bit<16> rwnd;
-	Register<bit<16>, bit<8>>(256) new_rwnd;
-    RegisterAction<bit<16>, bit<8>, bit<16>>(new_rwnd)
+	bit<32> rwnd;
+	Register<bit<32>, bit<8>>(256) new_rwnd;
+    RegisterAction<bit<32>, bit<8>, bit<32>>(new_rwnd)
     get_new_rwnd = { 
-        void apply(inout bit<16> register_data, out bit<16> result){
+        void apply(inout bit<32> register_data, out bit<32> result){
 			result = register_data; 
         }
     };
@@ -76,7 +77,10 @@ control SwitchIngress(
 		if(hdr.tcp.isValid()){
 			rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
 			if(rwnd!=0){ // if we see zero rwnd then we don't do any rwnd adjustment
-				hdr.tcp.window = (hdr.tcp.window < rwnd) ? hdr.tcp.window : rwnd;
+				
+				// ASSUMPTION: by this point 'rwnd' variable would be WS adjusted and no more than 65535
+				hdr.tcp.window = min(hdr.tcp.window, rwnd[15:0]);
+				
 			}
 		}
 	}
@@ -160,6 +164,7 @@ control SwitchEgressControl(
 	}
 
 
+	CalculateRTT() calculate_rtt; // instantiate the control
 
 
 	apply{
@@ -192,6 +197,11 @@ control SwitchEgressControl(
 				eg_meta.mirror_session = 1;
 				eg_meta.internal_hdr_type = INTERNAL_HDR_TYPE_EG_MIRROR;
     			eg_meta.internal_hdr_info = 1;
+			}
+
+
+			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_ACK){
+				calculate_rtt(hdr.ipv4, hdr.tcp, eg_meta.tcp_pkt_type, eg_meta.rtt_calc_status);
 			}
 
 		} // end of normal pkt processing

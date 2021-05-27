@@ -200,26 +200,26 @@ rwnd_t max_rwnd(rwnd_t rwnd1, rwnd_t rwnd2){
     }
 }
 
-bf_status_t get_current_rwnd(port_t port){
-    bf_status_t status;
+// bf_status_t get_current_rwnd(port_t port){
+//     bf_status_t status;
 
-    status = new_rwnd_key->setValue(new_rwnd_key_id, static_cast<uint64_t>(port));
-    CHECK_BF_STATUS(status);
+//     status = new_rwnd_key->setValue(new_rwnd_key_id, static_cast<uint64_t>(port));
+//     CHECK_BF_STATUS(status);
 
-    status = new_rwnd->dataReset(new_rwnd_data.get());
-    CHECK_BF_STATUS(status);
+//     status = new_rwnd->dataReset(new_rwnd_data.get());
+//     CHECK_BF_STATUS(status);
 
-    status = new_rwnd->tableEntryGet(*session, dev_tgt, *new_rwnd_key, fromHwFlag, new_rwnd_data.get());
-    CHECK_BF_STATUS(status);
+//     status = new_rwnd->tableEntryGet(*session, dev_tgt, *new_rwnd_key, fromHwFlag, new_rwnd_data.get());
+//     CHECK_BF_STATUS(status);
 
-    std::vector<uint64_t> new_rwnd_data_vector;
-    status = new_rwnd_data->getValue(new_rwnd_data_id, &new_rwnd_data_vector);
-    CHECK_BF_STATUS(status);
-    //printf("total_eg_qdepth: %lu\n", new_rwnd_data_vector[1]);
-    currentRwnd = new_rwnd_data_vector[1];
+//     std::vector<uint64_t> new_rwnd_data_vector;
+//     status = new_rwnd_data->getValue(new_rwnd_data_id, &new_rwnd_data_vector);
+//     CHECK_BF_STATUS(status);
+//     //printf("total_eg_qdepth: %lu\n", new_rwnd_data_vector[1]);
+//     currentRwnd = new_rwnd_data_vector[1];
 
-    return status;
-}
+//     return status;
+// }
 /* Updates the rwnd in the dataplane */
 bf_status_t set_rwnd(port_t port, rwnd_t newRwnd){
     
@@ -395,25 +395,25 @@ bf_status_t inNetworkCCAlgo(){
 
     status = set_rwnd(egressPort, currentRwnd); CHECK_BF_STATUS(status);
     status = set_working_copy(currentWorkingCopy); CHECK_BF_STATUS(status);
-    status = get_current_rwnd(egressPort); CHECK_BF_STATUS(status);
     usleep(roundIntervalInMicroSec);
     
     while(running){
         status = get_queuing_info(egressPort, &currentAvgQdepth);
         printf("%i\n",currentRwnd);
         if(currentAvgQdepth > upperQdepthThreshold){ // multiplicative decrement
-            status = set_rwnd(egressPort, max_rwnd(minimumRwnd, currentRwnd / rwndDecrement));
+            currentRwnd = max_rwnd(minimumRwnd, currentRwnd / rwndDecrement);
+            status = set_rwnd(egressPort, currentRwnd);
             CHECK_BF_STATUS(status);
         } else if((currentAvgQdepth < lowerQdepthThreshold)){ // additive increase
             uint16_t sum = currentRwnd + rwndIncrement;
             if(sum < currentRwnd){ sum = 65535;}
-            status = set_rwnd(egressPort, min_rwnd(maximumRwnd, sum)); // to avoid case where (currentRwnd + rwndIncrement > 65535
+            currentRwnd = min_rwnd(maximumRwnd, sum);
+            status = set_rwnd(egressPort, currentRwnd); // to avoid case where (currentRwnd + rwndIncrement > 65535
             CHECK_BF_STATUS(status);
         } else{
 
         }
         outfile << currentRwnd << " " << to_string(currentAvgQdepth) << endl;
-        status = get_current_rwnd(egressPort); CHECK_BF_STATUS(status);
         usleep(roundIntervalInMicroSec);
     }
     outfile.close();
