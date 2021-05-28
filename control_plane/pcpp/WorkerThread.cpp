@@ -276,11 +276,11 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 						// }
 						const auto& it1 = RTT_MAP.find(rkey1); // subtract ack_tstmp by syn_tstmp
 						const auto& it2 = RTT_MAP.find(rkey2);
-						if(it1 != RTT_MAP.end()){
-							it1->second = tstmp - it1->second;
+						if(it1 != RTT_MAP.end()){ // update RTT map based on RTT reported in ACK
+							it1->second = tstmp; // - it1->second;
 						}
 						if(it2 != RTT_MAP.end()){
-							it2->second = tstmp - it2->second;
+							it2->second = tstmp; // - it2->second;
 						}
 					} else { }
 				}
