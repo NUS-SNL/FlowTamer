@@ -149,7 +149,7 @@ parser SwitchEgressParser(
         internal_hdr = pkt.lookahead<internal_hdr_h>();
         transition select(internal_hdr.type, internal_hdr.info){
             (INTERNAL_HDR_TYPE_BRIDGED_META, _): parse_bridged_meta;
-            (INTERNAL_HDR_TYPE_EG_MIRROR, 1): parse_eg_mirror1;
+            (INTERNAL_HDR_TYPE_EG_MIRROR, (bit<4>)EG_MIRROR_TYPE_1): parse_eg_mirror1;
         }
     }
 
@@ -211,13 +211,13 @@ control SwitchEgressDeparser(
 
     apply {
         
-        if(eg_intr_md_for_dprsr.mirror_type == EG_MIRROR1){
+        if(eg_intr_md_for_dprsr.mirror_type == EG_MIRROR_TYPE_1){
             mirror.emit<eg_mirror1_h>(
                 eg_meta.mirror_session,
                 {
                     eg_meta.internal_hdr_type,
                     eg_meta.internal_hdr_info,
-                    eg_intr_md_from_prsr.global_tstamp
+                    eg_meta.ts_to_report
                 }
                 );
         } // end of if

@@ -12,6 +12,8 @@
 #include "includes/headers.p4"
 #include "includes/parser.p4"
 
+#define MAX_UINT32 4294967295
+
 
 #define HASH_TABLE_SIZE 65535
 #define HASH_TABLE_OP_SUCCESS 0
@@ -26,7 +28,8 @@ struct hash_table_entry {
     bit<32> ts;  // timestamp
 }
 
-control CalculateRTT(inout ipv4_h ipv4, inout tcp_h tcp, in tcp_pkt_type_t pkt_type, in bit<32> expected_seq_number, in bit<32> curr_time, out bit<32> rtt, out bit<1> status){
+// @pa_no_overlay("egress","eg_meta.rtt")
+control CalculateRTT(inout header_t hdr, inout egress_metadata_t eg_meta){
 
     Hash<bit<32>>(HashAlgorithm_t.CRC32) hash_pkt_fingerprint;
     Hash<bit<16>>(HashAlgorithm_t.CRC16) hashfunction_table1;
@@ -34,26 +37,26 @@ control CalculateRTT(inout ipv4_h ipv4, inout tcp_h tcp, in tcp_pkt_type_t pkt_t
     bit<32> pkt_fingerprint;
     bit<16> hash_table1_index;
     bit<32> syn_timestamp;
-    bit<32> interim_status;
+    bit<32> min_val;
 
     /* NOTE: Expected seq number has already been adjusted for SYN or ACK
        by table 'classify_tcp_pkt' in the egress control. */
 
     action get_pkt_fingerprint(){
         pkt_fingerprint = hash_pkt_fingerprint.get({
-            ipv4.src_addr, ipv4.dst_addr,
-            tcp.src_port, tcp.dst_port,
-            expected_seq_number
+            hdr.ipv4.src_addr, hdr.ipv4.dst_addr,
+            hdr.tcp.src_port, hdr.tcp.dst_port,
+            eg_meta.expected_seq_no
             });
     }
 
     action get_htable_index(){
         hash_table1_index = hashfunction_table1.get({
-            4w0,
-            ipv4.src_addr, ipv4.dst_addr,
-            tcp.src_port, tcp.dst_port,
-            expected_seq_number,
-            4w0
+            // 4w0, <-- causing error while loading bfrt python
+            hdr.ipv4.src_addr, hdr.ipv4.dst_addr,
+            hdr.tcp.src_port, hdr.tcp.dst_port,
+            eg_meta.expected_seq_no
+            // 4w0
             });
     }
 
@@ -66,11 +69,11 @@ control CalculateRTT(inout ipv4_h ipv4, inout tcp_h tcp, in tcp_pkt_type_t pkt_t
             hash_table_entry orig_val = reg_value;
 
             bool entry_is_empty = (orig_val.fp == 0);
-            bool entry_is_old   = ((curr_time - orig_val.ts) > TCP_HANDSHAKE_TIMEOUT);
+            bool entry_is_old   = ((eg_meta.curr_time - orig_val.ts) > TCP_HANDSHAKE_TIMEOUT);
 
             if(entry_is_empty || entry_is_old){ // do the insertion
                 reg_value.fp = pkt_fingerprint;
-                reg_value.ts = curr_time;
+                reg_value.ts = eg_meta.curr_time;
                 rv = HASH_TABLE_OP_SUCCESS;
             }
 
@@ -84,7 +87,7 @@ control CalculateRTT(inout ipv4_h ipv4, inout tcp_h tcp, in tcp_pkt_type_t pkt_t
             hash_table_entry orig_val = reg_value;
 
             bool entry_matched = (orig_val.fp == pkt_fingerprint);
-            // bool rtt_is_legit  = ((curr_time - orig_val.ts) < MAX_LEGIT_RTT);
+            // bool rtt_is_legit  = ((eg_meta.curr_time - orig_val.ts) < MAX_LEGIT_RTT);
 
             if(entry_matched){ // do the lookup and reset entry | && rtt_is_legit
                 reg_value.fp = 0;
@@ -97,11 +100,23 @@ control CalculateRTT(inout ipv4_h ipv4, inout tcp_h tcp, in tcp_pkt_type_t pkt_t
 
 
     action insert_hash_table1(){
-        status = (bit<1>)reg_insert_hash_table1.execute(hash_table1_index);
+        eg_meta.rtt_calc_status = (bit<1>)reg_insert_hash_table1.execute(hash_table1_index);
     }
 
     action lookup_hash_table1(){
         syn_timestamp = reg_lookup_hash_table1.execute(hash_table1_index);
+    }
+
+    Register<bit<32>,bit<1>>(1, 0) reg_adjust_rtt; // size = 1, initial_val = 0
+    RegisterAction<bit<32>,bit<1>,bit<32>>(reg_adjust_rtt) do_adjust_rtt = {
+        void apply(inout bit<32> reg_val, out bit<32> rv){
+            rv = eg_meta.rtt + MAX_UINT32;
+        }
+    };
+
+    
+    action adjust_rtt(){
+        eg_meta.rtt = do_adjust_rtt.execute(0);
     }
 
 
@@ -110,22 +125,27 @@ control CalculateRTT(inout ipv4_h ipv4, inout tcp_h tcp, in tcp_pkt_type_t pkt_t
         get_pkt_fingerprint();
         get_htable_index();
 
-        if(pkt_type == TCP_PKT_TYPE_SYN){
-            insert_hash_table1(); // this will set appropriate status
-            rtt = 0; // no rtt is computed here
+        if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN){
+            insert_hash_table1(); // this will set appropriate eg_meta.rtt_calc_status
+            eg_meta.rtt = 0; // no eg_meta.rtt is computed here
         }
         else{
             lookup_hash_table1(); // fills syn_timestamp with SYN ts or ZERO if lookup fails
             if(syn_timestamp != 0){
-                rtt = curr_time - syn_timestamp;
-                status = HASH_TABLE_OP_SUCCESS;
+                // Compute RTT
+                eg_meta.rtt = eg_meta.curr_time - syn_timestamp; 
+                /* TODO: Try to reduce stages for below wrap-around logic? */
+                min_val = min(eg_meta.curr_time, syn_timestamp);
+                if(min_val == eg_meta.curr_time){ // eg_meta.curr_time < syn_timestamp 
+                    adjust_rtt(); // wrap around correction
+                }
+                eg_meta.rtt_calc_status = HASH_TABLE_OP_SUCCESS;
             }
             else{
-                status = HASH_TABLE_OP_FAILURE;
+                eg_meta.rtt = 0;
+                eg_meta.rtt_calc_status = HASH_TABLE_OP_FAILURE;
             }
         }
-
-
     }
 }
 

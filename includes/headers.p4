@@ -84,7 +84,7 @@ const internal_hdr_type_t INTERNAL_HDR_TYPE_IG_MIRROR = 0xB;
 const internal_hdr_type_t INTERNAL_HDR_TYPE_EG_MIRROR = 0xC;
 
 /* Mirror Types */
-const bit<3> EG_MIRROR1 = 1; // corresponds to eg_mirror1_h
+const bit<3> EG_MIRROR_TYPE_1 = 1; // corresponds to eg_mirror1_h
 
 
 #define INTERNAL_HEADER           \
@@ -103,7 +103,7 @@ header bridged_meta_h {
 
 header eg_mirror1_h {
     INTERNAL_HEADER;
-    bit<48> eg_global_ts;
+    bit<48> timestamp;
 }
 
 struct header_t {
@@ -128,7 +128,9 @@ struct egress_metadata_t {
     tcp_pkt_type_t tcp_pkt_type;
     bit<1> rtt_calc_status;
     bit<32> expected_seq_no;
+    bit<32> curr_time;
     bit<32> rtt;
+    bit<48> ts_to_report;
 }
 
 

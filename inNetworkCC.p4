@@ -10,6 +10,8 @@
 #include "includes/parser.p4"
 #include "rtt_calc.p4"
 
+#define MIRROR_SESSION_ENP4S0F0 1
+
 const int MCAST_GRP_ID = 1;
 
 const PortId_t CPU_ETHERNET_PORT_1 = 64;
@@ -79,7 +81,7 @@ control SwitchIngress(
 
 }  // End of SwitchIngressControl
 
-
+// @pa_no_overlay("egress","eg_meta.rtt")
 control SwitchEgressControl(
     inout header_t hdr,
     inout egress_metadata_t eg_meta,
@@ -136,36 +138,54 @@ control SwitchEgressControl(
 	action set_SYN_pkt_type_and_expected_seq(){
 		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_SYN; 
 		eg_meta.expected_seq_no = hdr.tcp.seq_no + 1;
+		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0];
+	}
+	action set_SYN_pkt_type_and_expected_seq_adjust_ts(){ 
+		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_SYN; 
+		eg_meta.expected_seq_no = hdr.tcp.seq_no + 1;
+		// Ensures no ZERO ts inserted in hashtable
+		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0] + 1;
 	}
 	action set_ACK_pkt_type_and_expected_seq(){
 		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_ACK; 
 		eg_meta.expected_seq_no = hdr.tcp.seq_no;
+		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0];
 	}
 
 
-	table classify_tcp_pkt{
+	table prepare_tcp_meta_info{
 		key = {
 			hdr.tcp.flags: ternary;
+			eg_intr_md_from_prsr.global_tstamp[31:0]: ternary;
 			hdr.ipv4.total_len: range;
 		}
 		actions = {
 			set_tcp_pkt_type;
 			set_SYN_pkt_type_and_expected_seq;
+			set_SYN_pkt_type_and_expected_seq_adjust_ts;
 			set_ACK_pkt_type_and_expected_seq;
 			_nop;
 		}
 		default_action = _nop;
 		size = 16;
 		const entries = {
-			(TCP_FLAG_SYN, _): set_SYN_pkt_type_and_expected_seq();
-			(TCP_FLAG_SYN + TCP_FLAG_ACK, _): set_tcp_pkt_type(TCP_PKT_TYPE_SYN_ACK);
-			(TCP_FLAG_FIN, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN);
-			(TCP_FLAG_FIN + TCP_FLAG_ACK, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN_ACK);
-			(TCP_FLAG_ACK, 0..80): set_ACK_pkt_type_and_expected_seq();
-			(_, 81..1600): set_tcp_pkt_type(TCP_PKT_TYPE_DATA);
+			(TCP_FLAG_SYN, 0, _): set_SYN_pkt_type_and_expected_seq_adjust_ts();
+			(TCP_FLAG_SYN, _, _): set_SYN_pkt_type_and_expected_seq();
+			(TCP_FLAG_SYN + TCP_FLAG_ACK, _, _): set_tcp_pkt_type(TCP_PKT_TYPE_SYN_ACK);
+			(TCP_FLAG_FIN, _, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN);
+			(TCP_FLAG_FIN + TCP_FLAG_ACK, _, _): set_tcp_pkt_type(TCP_PKT_TYPE_FIN_ACK);
+			(TCP_FLAG_ACK, _, 0..80): set_ACK_pkt_type_and_expected_seq();
+			(_, _, 81..1600): set_tcp_pkt_type(TCP_PKT_TYPE_DATA);
 		}
 	}
 
+
+	action mirror_to_report_ts(){
+		eg_intr_md_for_dprsr.mirror_type = EG_MIRROR_TYPE_1;
+		eg_meta.mirror_session = MIRROR_SESSION_ENP4S0F0;
+		eg_meta.internal_hdr_type = INTERNAL_HDR_TYPE_EG_MIRROR;
+    	eg_meta.internal_hdr_info = (bit<4>)EG_MIRROR_TYPE_1;
+	}
 
 	CalculateRTT() calculate_rtt; // instantiate the control
 
@@ -174,13 +194,14 @@ control SwitchEgressControl(
 		
 		if(eg_meta.eg_mirror1.isValid()){ // mirrored pkt
 			// Copy the eg_global_ts as src Eth address
-			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.eg_global_ts;
+			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.timestamp;
 			 
 		} // end of mirrored pkt processing
 		else { // normal pkt
 
 			if(hdr.tcp.isValid()){
-				classify_tcp_pkt.apply(); // also sets eg_meta.expected_seq_no
+				// set eg_meta: expected_seq_no, curr_time, tcp_pkt_type
+				prepare_tcp_meta_info.apply(); 
 			}
 
 			v = get_working_copy.execute(0);
@@ -195,18 +216,20 @@ control SwitchEgressControl(
 
 
 			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN_ACK){ // either SYN or SYN-ACK
-				/* Mirror the packet */
-				eg_intr_md_for_dprsr.mirror_type = EG_MIRROR1;
-				eg_meta.mirror_session = 1;
-				eg_meta.internal_hdr_type = INTERNAL_HDR_TYPE_EG_MIRROR;
-    			eg_meta.internal_hdr_info = 1;
+				/* Set timestamp to report to CP and mirror the packet */
+				eg_meta.ts_to_report = eg_intr_md_from_prsr.global_tstamp;
+				mirror_to_report_ts();
 			}
 
-
+			/* If it is SYN or ACK, do the RTT calculation */
 			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_ACK){
-				calculate_rtt.apply(hdr.ipv4, hdr.tcp, eg_meta.tcp_pkt_type, 
-				                    eg_meta.expected_seq_no, eg_intr_md_from_prsr.global_tstamp[31:0],
-									eg_meta.rtt, eg_meta.rtt_calc_status);
+				calculate_rtt.apply(hdr, eg_meta);
+
+				if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_ACK && eg_meta.rtt_calc_status == HASH_TABLE_OP_SUCCESS){
+					// Mirror the ACK packet and include RTT in it
+					eg_meta.ts_to_report = (bit<48>)eg_meta.rtt;
+					mirror_to_report_ts();
+				}
 			}
 
 		} // end of normal pkt processing
