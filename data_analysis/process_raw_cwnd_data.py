@@ -1,3 +1,4 @@
+# About: Processes output obtained after manually cleaning data obtained through ss_probe.sh
 #!/usr/bin/env python3
 # generates the .csv files with timestamp, mss, cwnd
 # before running this script manually cut the initial few seconds part and the last few seconds part

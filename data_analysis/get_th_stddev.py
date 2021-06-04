@@ -1,3 +1,4 @@
+# About: Computes that standard deviation of per-flow throughput
 #!/usr/bin/env python3
 
 import sys

@@ -1,3 +1,4 @@
+#About: Continously reads cwnd values (~ every 2-4 ms) using sstool and saves the output as raw text file.
 #!/bin/sh
 
 initial=$(date +'%s')

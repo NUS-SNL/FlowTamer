@@ -1,3 +1,4 @@
+#About: To be run on the receiver VM for starting iperf server 
 #!/bin/sh
 sudo killall iperf3
 sudo killall mm-delay

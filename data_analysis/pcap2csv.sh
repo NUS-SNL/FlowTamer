@@ -1,3 +1,4 @@
+# About: converts a .pcap file to .csv file
 if [ $# -eq 0 ]
 then
 echo "This scripts converts .pcap files to a more parse-able .csv format." 

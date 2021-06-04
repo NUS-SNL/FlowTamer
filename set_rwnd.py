@@ -1,1 +1,0 @@
-bfrt.internet_cc.pipe.SwitchEgress.new_rwnd.mod(register_index=0, f1=4001)
