@@ -5,6 +5,8 @@ typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 
 typedef bit<4> tcp_pkt_type_t;
+typedef bit<32> rwnd_t;
+
 const tcp_pkt_type_t TCP_PKT_TYPE_SYN     = 1;
 const tcp_pkt_type_t TCP_PKT_TYPE_SYN_ACK = 2;
 const tcp_pkt_type_t TCP_PKT_TYPE_FIN     = 3;
@@ -117,6 +119,8 @@ struct header_t {
 
 struct ingress_metadata_t {
     bit<16> l4_payload_checksum;
+    rwnd_t base_rwnd;
+    rwnd_t rtt_scaled_rwnd;
 }
 
 struct egress_metadata_t {

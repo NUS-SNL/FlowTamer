@@ -9,6 +9,7 @@
 #include "includes/headers.p4"
 #include "includes/parser.p4"
 #include "rtt_calc.p4"
+#include "adjust_rwnd.p4"
 
 #define MIRROR_SESSION_ENP4S0F0 1
 
@@ -32,7 +33,6 @@ control SwitchIngress(
     inout ingress_intrinsic_metadata_for_deparser_t ig_intr_md_for_dprsr,
     inout ingress_intrinsic_metadata_for_tm_t ig_intr_md_for_tm){
 
-	bit<32> rwnd;
 	Register<bit<32>, bit<8>>(256) new_rwnd;
     RegisterAction<bit<32>, bit<8>, bit<32>>(new_rwnd)
     get_new_rwnd = { 
@@ -58,7 +58,12 @@ control SwitchIngress(
 		const default_action = miss(0x1);
 	}
 
+	adjustRWND() adjust_rwnd;
 
+	action read_new_rwnd_from_reg(){
+		ig_meta.base_rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
+	}
+	
 	apply {
 		if(hdr.ethernet.isValid()){
 			if(hdr.ethernet.ether_type == (bit<16>) ether_type_t.ARP){
@@ -69,11 +74,14 @@ control SwitchIngress(
 			else { l2_forward.apply(); }
 		}
 		if(hdr.tcp.isValid()){
-			rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
-			if(rwnd!=0){ // if we see zero rwnd then we don't do any rwnd adjustment
+			read_new_rwnd_from_reg();
+			ig_meta.base_rwnd = 35;
+			adjust_rwnd.apply(hdr, ig_meta);
+
+			if(ig_meta.rtt_scaled_rwnd!=0){ // if we see zero rwnd then we don't do any rwnd adjustment
 				
 				// ASSUMPTION: by this point 'rwnd' variable would be WS adjusted and no more than 65535
-				hdr.tcp.window = min(hdr.tcp.window, rwnd[15:0]);
+				hdr.tcp.window = min(hdr.tcp.window, ig_meta.rtt_scaled_rwnd[15:0]);
 				
 			}
 		}

@@ -35,7 +35,7 @@ parser SwitchIngressParser(
 	}
 
     state init_metadata { // init bridged_meta (based on slide 23 of BA-1122)
-        ig_meta = {0};
+        ig_meta = {0, 0 ,0};
         hdr.bridged_meta.setValid();
         hdr.bridged_meta.type = INTERNAL_HDR_TYPE_BRIDGED_META;
         hdr.bridged_meta.info = 0;
