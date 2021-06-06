@@ -64,13 +64,15 @@ log_vals = gen_log_vals()
 exp_keys,exp_vals = gen_exp_keys_and_vals()
 
 print("Adding entries to the log and antilog tables... ")
+reg_new_rwnd = bfrt.inNetworkCC.pipe.SwitchIngress.new_rwnd
 tbl_log_rwnd = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.tbl_log_rwnd
 tbl_log_rtt_multiplier = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.tbl_log_rtt_multiplier
 tbl_antilog_log_sum = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.tbl_antilog_log_sum
 tbl_fetch_rtt_mul_and_ws = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.fetch_rtt_mul_and_ws
 
-tbl_fetch_rtt_mul_and_ws.add_with_set_rtt_mul_and_ws(src_addr="10.1.1.2", dst_addr="10.1.1.1", dst_port=5202, src_port=5201, rtt_mul=100, ws=0)
-#tbl_fetch_rtt_mul_and_ws.mod_with_set_rtt_mul_and_ws(src_addr="10.1.1.2", dst_addr="10.1.1.1", dst_port=5202, src_port=5201, rtt_mul=23, ws=0)
+# reg_new_rwnd.add(REGISTER_INDEX=129, f1=400)
+# tbl_fetch_rtt_mul_and_ws.add_with_set_rtt_mul_and_ws(src_addr="10.1.1.2", dst_addr="10.1.1.1", src_port=5201, dst_port=7777, rtt_mul=2, ws=6)
+# tbl_fetch_rtt_mul_and_ws.mod_with_set_rtt_mul_and_ws(src_addr="10.1.1.2", dst_addr="10.1.1.1", src_port=5201, dst_port=7777, rtt_mul=1, ws=0)
 for i in zip(log_keys,log_masks,log_vals):
     tbl_log_rwnd.add_with_set_log_rwnd(base_rwnd=int(i[0],base=2), base_rwnd_mask=int(i[1],base=2), MATCH_PRIORITY=1, result=i[2])
     tbl_log_rtt_multiplier.add_with_set_log_rtt_multiplier(rtt_multiplier=int(i[0],base=2), rtt_multiplier_mask=int(i[1],base=2), MATCH_PRIORITY=1, result=i[2])
@@ -85,5 +87,10 @@ bfrt.mirror.cfg.add_with_normal(sid=1, direction='EGRESS', session_enable=True, 
 
 
 bfrt.complete_operations()
+
+# """ Enable algo on pkts ingressing on dev port 129 """
+# port_meta_tbl = bfrt.inNetworkCC.pipe.SwitchIngressParser.PORT_METADATA
+# port_meta_tbl.add(ingress_port=129, apply_algo=1)
+
 
 
