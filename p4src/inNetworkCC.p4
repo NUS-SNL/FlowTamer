@@ -8,7 +8,7 @@
 
 #include "includes/headers.p4"
 #include "includes/parser.p4"
-#include "rtt_calc.p4"
+#include "calc_rtt.p4"
 #include "adjust_rwnd.p4"
 
 #define MIRROR_SESSION_ENP4S0F0 1
