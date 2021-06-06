@@ -108,6 +108,12 @@ header eg_mirror1_h {
     bit<48> timestamp;
 }
 
+/* 
+struct port_metadata_t {
+    bit<1> apply_algo;
+};
+*/
+
 struct header_t {
     bridged_meta_h bridged_meta;
 	ethernet_h ethernet;
@@ -121,6 +127,7 @@ struct ingress_metadata_t {
     bit<16> l4_payload_checksum;
     rwnd_t base_rwnd;
     rwnd_t rtt_scaled_rwnd;
+    // port_metadata_t port_meta;
 }
 
 struct egress_metadata_t {

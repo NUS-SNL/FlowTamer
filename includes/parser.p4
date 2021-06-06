@@ -31,16 +31,26 @@ parser SwitchIngressParser(
 	state start {
         pkt.extract(ig_intr_md);
         pkt.advance(PORT_METADATA_SIZE); // macro defined in tofino.p4
-		transition init_metadata;
+        transition init_metadata;
 	}
 
     state init_metadata { // init bridged_meta (based on slide 23 of BA-1122)
-        ig_meta = {0, 0 ,0};
+        ig_meta.l4_payload_checksum = 0;
+        ig_meta.base_rwnd = 0;
+        ig_meta.rtt_scaled_rwnd = 0;
+        // ig_meta.port_meta.apply_algo = 0;
         hdr.bridged_meta.setValid();
         hdr.bridged_meta.type = INTERNAL_HDR_TYPE_BRIDGED_META;
         hdr.bridged_meta.info = 0;
+        // transition parse_port_metadata;
         transition parse_ethernet;
     }
+/* 
+    state parse_port_metadata {
+        ig_meta.port_meta = port_metadata_unpack<port_metadata_t>(pkt);
+        transition parse_ethernet;
+    }
+ */
 
 	state parse_ethernet {
 		pkt.extract(hdr.ethernet);
