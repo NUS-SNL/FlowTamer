@@ -46,9 +46,9 @@ working_copy_t currentWorkingCopy = 0;
 port_t egressPort = 129;
 uint16_t roundIntervalInMicroSec = 20000;
 
-rwnd_t currentRwnd = 65535;
 rwnd_t minimumRwnd = 118;
-rwnd_t maximumRwnd = 65535;
+rwnd_t maximumRwnd = 1751122; // 50 MB for RTT of 300ms ==> 50/30 = 1.67MB for RTT of 10ms
+rwnd_t currentRwnd = maximumRwnd;
 rwnd_t rwndIncrement = 118;
 rwnd_t rwndDecrement = 2;
 
@@ -405,8 +405,8 @@ bf_status_t inNetworkCCAlgo(){
             status = set_rwnd(egressPort, currentRwnd);
             CHECK_BF_STATUS(status);
         } else if((currentAvgQdepth < lowerQdepthThreshold)){ // additive increase
-            uint16_t sum = currentRwnd + rwndIncrement;
-            if(sum < currentRwnd){ sum = 65535;}
+            rwnd_t sum = currentRwnd + rwndIncrement;
+            if(sum < currentRwnd){ sum = maximumRwnd;} // to handle wrap around (rarely possible?)
             currentRwnd = min_rwnd(maximumRwnd, sum);
             status = set_rwnd(egressPort, currentRwnd); // to avoid case where (currentRwnd + rwndIncrement > 65535
             CHECK_BF_STATUS(status);
