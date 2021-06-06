@@ -73,17 +73,20 @@ control SwitchIngress(
 			}
 			else { l2_forward.apply(); }
 		}
-		if(hdr.tcp.isValid()){
-			read_new_rwnd_from_reg();
-			ig_meta.base_rwnd = 35;
-			adjust_rwnd.apply(hdr, ig_meta);
+		if(hdr.tcp.isValid() && (hdr.tcp.flags & 0b00000010) !=1){ // && ig_meta.port_meta.apply_algo ==
+			// TCP pkts except SYN and SYN-ACK
+			
+			read_new_rwnd_from_reg(); // returns the value from register in ig_meta.base_rwnd
+			
+			if(ig_meta.base_rwnd != 0){ 
+				// if we see zero rwnd then we don't do any rwnd adjustment + setting in the packet
 
-			if(ig_meta.rtt_scaled_rwnd!=0){ // if we see zero rwnd then we don't do any rwnd adjustment
-				
-				// ASSUMPTION: by this point 'rwnd' variable would be WS adjusted and no more than 65535
+				adjust_rwnd.apply(hdr, ig_meta);
+
+				// ASSUMPTION: by this point 'rtt_scaled_rwnd' variable would be WS adjusted and no more than 65535. BUG possibility for high new_rwnd/rtt and low WS
 				hdr.tcp.window = min(hdr.tcp.window, ig_meta.rtt_scaled_rwnd[15:0]);
 				
-			}
+			}		
 		}
 	}
 

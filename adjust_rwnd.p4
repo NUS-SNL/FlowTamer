@@ -23,11 +23,14 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
     bit<16> log_rwnd;
     bit<16> log_rtt_multiplier;
     bit<32> log_sum; 
-    bit<32> rtt_rwnd_product;
 
     action set_rtt_mul_and_ws(rtt_multiplier_t rtt_mul, ws_shift_t ws){
         rtt_multiplier = rtt_mul;
         ws_shift = ws;
+    }
+
+    action miss_rtt_ws_lookup(){
+        /* TODO: on miss, inform the CP about it */
     }
     
     table fetch_rtt_mul_and_ws {
@@ -39,7 +42,9 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
         }
         actions = {
             set_rtt_mul_and_ws;
+            miss_rtt_ws_lookup;
         }
+        default_action = miss_rtt_ws_lookup;
     }
 
     action set_log_rwnd(bit<16> result) {
@@ -83,7 +88,7 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
         size = 65540;
     }
 
-    action rshift0(){ ig_meta.rtt_scaled_rwnd = ig_meta.rtt_scaled_rwnd >> 0; }
+    action rshift0(){ /* ig_meta.rtt_scaled_rwnd = ig_meta.rtt_scaled_rwnd >> 0;*/ } // nop
     action rshift1(){ ig_meta.rtt_scaled_rwnd = ig_meta.rtt_scaled_rwnd >> 1; }
     action rshift2(){ ig_meta.rtt_scaled_rwnd = ig_meta.rtt_scaled_rwnd >> 2; }
     action rshift3(){ ig_meta.rtt_scaled_rwnd = ig_meta.rtt_scaled_rwnd >> 3; }
