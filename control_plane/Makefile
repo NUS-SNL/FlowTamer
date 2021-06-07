@@ -8,7 +8,7 @@ endif
 
 PROG=inNetworkCC
 
-CPPFLAGS = -I$(SDE_INSTALL)/include -DSDE_INSTALL=\"$(SDE_INSTALL)\" \
+CPPFLAGS = -I$(SDE_INSTALL)/include -I$(CURR_DIR) -DSDE_INSTALL=\"$(SDE_INSTALL)\" \
            -DPROG_NAME=\"$(PROG)\" -D__DIR__=\"${CURDIR}\"
 CXXFLAGS = -std=c++11 -Wall -Wextra -Werror
 BF_LIBS  = -L$(SDE_INSTALL)/lib -lbf_switchd_lib -ldriver -lbfutils -lbfsys
@@ -23,7 +23,8 @@ CURR_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 BASE_BUILDDIR:=$(CURR_DIR)/build
 BUILDDIR=$(BASE_BUILDDIR)/$(BUILD)
 
-SOURCES = $(wildcard $(CURR_DIR)/*.cpp)
+SOURCES = $(wildcard $(CURR_DIR)/*.cpp) \
+		  $(wildcard $(CURR_DIR)/*/*.cpp)
 OBJECTS = $(patsubst $(CURR_DIR)/%,$(BUILDDIR)/%,$(SOURCES:.cpp=.o))
 DEPENDS = $(patsubst $(CURR_DIR)/%,$(BUILDDIR)/%,$(SOURCES:.cpp=.d))
 
