@@ -15,17 +15,18 @@
 // #define COLLECT_STATS_EVERY_SEC 2
 
 
-// Keep running flag
-bool keepRunning = true;
-
 void onApplicationInterrupted(void* cookie)
 {
-	keepRunning = false;
-	printf("\nShutting down...\n");
+	(void) cookie;
+
+	printf("\nShutting down packet capture...\n");
+	pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
 }
 
-int main(int argc, char* argv[])
+void start_pcpp_capture()
 {
+	// newlines before EAL init prints
+	printf("\n\n");
 	// Register the on app close event handler
 	// onApplicationInterrupted function defined above will be executed when Ctrl+C is pressed while this app is running
 	pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterrupted, NULL);
@@ -46,7 +47,7 @@ int main(int argc, char* argv[])
 	if (device2 == NULL)
 	{
 		printf("Cannot find device2 with port '%d'\n", RECEIVER_DEVICE_ID);
-        return 1;
+        exit(1);
 	}
 
 	// Open DPDK devices
@@ -59,7 +60,7 @@ int main(int argc, char* argv[])
 	if (!device2->openMultiQueues(1, 1))
 	{
 		printf("Couldn't open device2 #%d, PMD '%s'\n", device2->getDeviceId(), device2->getPMDName().c_str());
-		return 1;
+		exit(1);
 	}
 
 	// Create worker threads
@@ -78,15 +79,9 @@ int main(int argc, char* argv[])
 	if (!pcpp::DpdkDeviceList::getInstance().startDpdkWorkerThreads(workersCoreMask, workers))
 	{
 		printf("Couldn't start worker threads");
-		return 1;
+		exit(1);
 	}
 
-	// Stop worker threads
-	while(keepRunning){
-		sleep(1);
-	}
-	pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
-
-	// Exit app with normal exit code
-	return 0;
+	printf("\nDPDK worker threads started successfully!\n\n");
+	
 }

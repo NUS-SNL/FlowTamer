@@ -25,6 +25,7 @@ extern "C" {
 #include "utils/utils.hpp"
 #include "algo/algo.hpp"
 #include "bfrt/bfrt.hpp"
+#include "pcpp/pcpp.hpp"
 
 
 /* 
@@ -81,6 +82,9 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
     (void) switchd_ctx;
     bf_status_t status;
     int returnVal;
+
+    /* Start PCPP (DPDK) packet capture */
+    start_pcpp_capture();
     
     /* Adding ports and one-time config (whichever possible) via bfrt_python */
     printf("\n\nConfiguring via bfrt_python script...\n");
