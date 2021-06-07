@@ -1,12 +1,5 @@
-#ifndef UTILS_H
-#define UTILS_H
-
-#include <bf_types/bf_types.h>
-
-void __check_bf_status__(bf_status_t status, const char* file, int lineNumber);
-
-/* Helper function to check bf_status */
-#define CHECK_BF_STATUS(status) __check_bf_status__(status, __FILE__, __LINE__)
+#ifndef BFRT_UTILS_H
+#define BFRT_UTILS_H
 
 #define DECLARE_BFRT_TABLE_VARS(tableName) \
     const bfrt::BfRtTable *tableName = nullptr; \
@@ -17,8 +10,8 @@ void __check_bf_status__(bf_status_t status, const char* file, int lineNumber);
 
 #define STRINGIFY(X) #X
 
-#define INIT_BFRT_REG_VARS(pipeControl, regName, bfrtStatus) \
-    bfrtStatus = bf_rt_info->bfrtTableFromNameGet(STRINGIFY(pipeControl) "." STRINGIFY(regName), &regName);\
+#define INIT_BFRT_REG_VARS(bfRtInfo, pipeControl, regName, bfrtStatus) \
+    bfrtStatus = bfRtInfo->bfrtTableFromNameGet(STRINGIFY(pipeControl) "." STRINGIFY(regName), &regName);\
     CHECK_BF_STATUS(bfrtStatus);\
     bfrtStatus = regName->keyFieldIdGet("$REGISTER_INDEX", &regName##_key_id);\
     CHECK_BF_STATUS(bfrtStatus);\
@@ -28,6 +21,8 @@ void __check_bf_status__(bf_status_t status, const char* file, int lineNumber);
     bfrtStatus = regName->keyReset(regName##_key.get()); CHECK_BF_STATUS(bfrtStatus);\
     bfrtStatus = regName->dataAllocate(&regName##_data); CHECK_BF_STATUS(bfrtStatus);\
     bfrtStatus = regName->dataReset(regName##_data.get()); CHECK_BF_STATUS(bfrtStatus);
+
+
 
 
 #endif

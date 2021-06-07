@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <stdint.h>
+#include <bf_types/bf_types.h>
 
 
 typedef uint8_t working_copy_t;
