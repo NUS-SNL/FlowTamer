@@ -24,11 +24,9 @@ qdepth_t upperQdepthThreshold = 750000;
 qdepth_t currentAvgQdepth;
 
 
-bf_status_t inNetworkCCAlgo(std::fstream &outfile){
+bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running){
     
     bf_status_t status;
-        
-    bool running = true;
 
     Bfruntime& bfrt = Bfruntime::getInstance();
 
@@ -37,7 +35,7 @@ bf_status_t inNetworkCCAlgo(std::fstream &outfile){
     // status = set_working_copy(currentWorkingCopy); CHECK_BF_STATUS(status);
     usleep(roundIntervalInMicroSec);
     
-    while(running){
+    while(algo_running){
         status = bfrt.get_queuing_info(egressPort, currentAvgQdepth, currentWorkingCopy);
         printf("%i\n",currentRwnd);
         if(currentAvgQdepth > upperQdepthThreshold){ // multiplicative decrement

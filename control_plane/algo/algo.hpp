@@ -5,7 +5,7 @@
 #include "utils/types.hpp"
 #include <fstream>
 
-bf_status_t inNetworkCCAlgo(std::fstream &outfile);
+bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running);
 
 
 

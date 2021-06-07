@@ -3,5 +3,6 @@
 
 /* Inits pcpp w/ DPDK and starts worker thread(s) */
 void start_pcpp_capture();
+void stop_pcpp_capture();
 
 #endif

@@ -6,6 +6,7 @@ Academy course ICA-1132: "Barefoot Runtime Interface & PTF"
 /* Standard Linux/C++ includes go here */
 #include <unistd.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <string>
 
 #include <bf_rt/bf_rt_common.h>
@@ -46,6 +47,13 @@ extern "C" {
 #define INIT_STATUS_TCP_PORT 7777
 #define BFSHELL SDE_INSTALL "/bin/bfshell"  // macro string concat
 #define RUN_PD_RPC SDE_INSTALL "/../run_pd_rpc.py" // macro string concat
+
+bool algo_running = true;
+
+void interrupt_handler(int s){
+    printf("\nCaught interrupt signal %d\n", s);
+    algo_running = false;
+}
 
 bf_switchd_context_t* init_switchd(){
     bf_status_t status = 0;
@@ -107,21 +115,27 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
 
     std::fstream outfile("result.txt");
 
-    status = inNetworkCCAlgo(outfile);
+    status = inNetworkCCAlgo(outfile, algo_running);
     CHECK_BF_STATUS(status);
 
-    printf("\n\nFinished inNetworkCCRuntime...\n");
-
-    while (true) { sleep(1); }
+    printf("Stopped inNetworkCCAlgo\n");
+    stop_pcpp_capture();
 
     return BF_SUCCESS;
-
 }
 
 
 int main(int argc, char **argv){
     /* Not using cmdline params in this minimal boiler plate */
     (void) argc; (void) argv;
+
+    /* Set up the SIGINT handler */
+    /* struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = interrupt_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction(SIGINT, &sigIntHandler, NULL); */
+    signal(SIGINT,interrupt_handler);
 
     bf_status_t status = 0;
     bf_switchd_context_t  *switchd_ctx;
@@ -137,6 +151,8 @@ int main(int argc, char **argv){
 
     /* Run the CP app */
     status = app_run(switchd_ctx);
+
+    // printf("Finished running the CP app\n");
 
     if (switchd_ctx) free(switchd_ctx);
 

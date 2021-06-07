@@ -15,12 +15,10 @@
 // #define COLLECT_STATS_EVERY_SEC 2
 
 
-void onApplicationInterrupted(void* cookie)
+void stop_pcpp_capture()
 {
-	(void) cookie;
-
-	printf("\nShutting down packet capture...\n");
 	pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
+	printf("Stopped DPDK packet capture\n");
 }
 
 void start_pcpp_capture()
@@ -29,7 +27,7 @@ void start_pcpp_capture()
 	printf("\n\n");
 	// Register the on app close event handler
 	// onApplicationInterrupted function defined above will be executed when Ctrl+C is pressed while this app is running
-	pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterrupted, NULL);
+	// pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterrupted, NULL);
 
 	// Initialize DPDK
 	pcpp::CoreMask coreMaskToUse = pcpp::getCoreMaskForAllMachineCores();
