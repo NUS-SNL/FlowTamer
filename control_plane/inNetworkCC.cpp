@@ -22,7 +22,9 @@ extern "C" {
 }
 #endif
 
-#include "runtimeCC.hpp"
+#include "utils/utils.hpp"
+#include "algo/algo.hpp"
+#include "bfrt/bfrt.hpp"
 
 
 /* 
@@ -73,10 +75,11 @@ bf_switchd_context_t* init_switchd(){
     return switchd_ctx;
 }
 
-/* Your great NOS runtime goes here */
+/* Our great NOS runtime goes here */
 bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
 {
     (void) switchd_ctx;
+    bf_status_t status;
     int returnVal;
     
     /* Adding ports and one-time config (whichever possible) via bfrt_python */
@@ -98,7 +101,10 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
     /* Run Indefinitely */
     printf("\n\nRunning the CP app...\n");
 
-    inNetworkCCRuntime();
+    std::fstream outfile("result.txt");
+
+    status = inNetworkCCAlgo(outfile);
+    CHECK_BF_STATUS(status);
 
     printf("\n\nFinished inNetworkCCRuntime...\n");
 
