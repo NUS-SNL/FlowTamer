@@ -18,7 +18,7 @@ elif hostname == 'tofino1b':
 elif hostname == 'tofino1c':
     fp_ports = [31]
 
-python_lib_append = '/home/cirlab/jarvis-tofino/harsh-tofino/inNetworkCC'
+python_lib_append = '/home/cirlab/jarvis-tofino/harsh-tofino/inNetworkCC/control_plane'
 sys.path.append(python_lib_append)
 from LookUpTable import *
 

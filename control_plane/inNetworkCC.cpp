@@ -85,7 +85,7 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
     /* Adding ports and one-time config (whichever possible) via bfrt_python */
     printf("\n\nConfiguring via bfrt_python script...\n");
     fflush(stdout);
-    std::string bfshell_cmd = BFSHELL " -b " __DIR__ "/../setup_tofino.py";
+    std::string bfshell_cmd = BFSHELL " -b " __DIR__ "/setup_tofino.py";
     returnVal = system(bfshell_cmd.c_str());
     if(returnVal == 0)
         printf("Successfully configured via bfrt_python script\n");
@@ -93,7 +93,7 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
     /* PD-fixed one-time config (whichever possible) via run_pd_rpc */
     printf("\n\nConfiguring via run_pd_rpc script...\n");
     fflush(stdout);
-    std::string run_pd_rpc_cmd = "env SDE_INSTALL=" SDE_INSTALL " " RUN_PD_RPC " " __DIR__ "/../set_rate.py";
+    std::string run_pd_rpc_cmd = "env SDE_INSTALL=" SDE_INSTALL " " RUN_PD_RPC " " __DIR__ "/set_rate.py";
     returnVal = system(run_pd_rpc_cmd.c_str());
     if(returnVal == 0)
         printf("Successfully configured via run_pd_rpc script\n");
