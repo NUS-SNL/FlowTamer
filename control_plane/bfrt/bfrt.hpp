@@ -29,6 +29,8 @@ struct rtt_ws_entry_pair_info_t {
     rtt_t    rtt_mul;
 };
 
+void fetch_rtt_mul_and_ws_aging_cb_wrapper(const bf_rt_target_t &dev_tgt, const bfrt::BfRtTableKey *key, void *cookie);
+
 class Bfruntime {
     private:
 
@@ -59,6 +61,8 @@ class Bfruntime {
     std::unique_ptr<bfrt::BfRtTableKey> fetch_rtt_mul_and_ws_key2;
     std::unique_ptr<bfrt::BfRtTableData> fetch_rtt_mul_and_ws_data1;
     std::unique_ptr<bfrt::BfRtTableData> fetch_rtt_mul_and_ws_data2;
+    std::unique_ptr<bfrt::BfRtTableAttributes> fetch_rtt_mul_and_ws_attributes;
+
     bf_rt_id_t fetch_rtt_mul_and_ws_key_ipv4_src_id = 0;
     bf_rt_id_t fetch_rtt_mul_and_ws_key_ipv4_dst_id = 0;
     bf_rt_id_t fetch_rtt_mul_and_ws_key_tcp_src_port_id = 0;
@@ -66,10 +70,15 @@ class Bfruntime {
     bf_rt_id_t set_rtt_mul_and_ws_action_id = 0;
     bf_rt_id_t set_rtt_mul_and_ws_action_field_rtt_mul_id = 0;
     bf_rt_id_t set_rtt_mul_and_ws_action_field_ws_id = 0;
+    bf_rt_id_t set_rtt_mul_and_ws_action_field_entry_ttl_id = 0;
 
+    const uint32_t fetch_rtt_mul_and_ws_key_ttl_query_interval = 250;
+    const uint32_t fetch_rtt_mul_and_ws_key_max_ttl = 5000;
+    const uint32_t fetch_rtt_mul_and_ws_key_min_ttl = 1000;
+    const uint32_t fetch_rtt_mul_and_ws_common_timeout = 1000;
+    const void * fetch_rtt_mul_and_ws_key_cookie;
 
     working_copy_t currentWorkingCopy = 0;
-
     /* 
         Private constructor and destructor to avoid them being 
         called by clients.
@@ -92,8 +101,10 @@ class Bfruntime {
 
     // Swaps the working copy (of qdepth sum/count registers)
     bf_status_t update_working_copy(working_copy_t &currentWorkingCopy);
-
     
+    /******************/
+    /* Public Section */
+    /******************/
     public:
 
     /* Provides access to the unique instance of the singleton */
@@ -106,11 +117,13 @@ class Bfruntime {
     bf_status_t get_queuing_info(port_t egressPort, uint64_t &avgQdepth, working_copy_t &currentWorkingCopy);
 
     bf_status_t add_rtt_ws_entry_pair(const rtt_ws_entry_pair_info_t &rtt_ws_entry_pair_info);
+    // static void fetch_rtt_mul_and_ws_aging_cb(const bf_rt_target_t &dev_tgt, const bfrt::BfRtTableKey *table_key, void *cookie);
+
+    void fetch_rtt_mul_and_ws_aging_cb(const bf_rt_target_t &dev_tgt, const bfrt::BfRtTableKey *table_key, void *cookie);
 
     /* Singleton should not be clonable or assignable */
     Bfruntime(Bfruntime &other) = delete;
     void operator=(const Bfruntime &) = delete;
-
 };
 
 

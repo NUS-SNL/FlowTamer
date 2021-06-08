@@ -139,6 +139,7 @@ void Bfruntime::init(){
 void Bfruntime::initBfRtTablesRegisters(){
 
     bf_status_t status;
+    bfrt::BfRtIdleTmoExpiryCb idle_time_callback = fetch_rtt_mul_and_ws_aging_cb_wrapper;
 
    /*  // Register working_copy
     status = bf_rt_info->bfrtTableFromNameGet("SwitchEgressControl.working_copy", &working_copy);
@@ -194,8 +195,12 @@ void Bfruntime::initBfRtTablesRegisters(){
     fflush(stdout);
     status = fetch_rtt_mul_and_ws->dataFieldIdGet("ws", set_rtt_mul_and_ws_action_id, &set_rtt_mul_and_ws_action_field_ws_id);
     CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->dataFieldIdGet("$ENTRY_TTL", set_rtt_mul_and_ws_action_id, &set_rtt_mul_and_ws_action_field_entry_ttl_id);
+    CHECK_BF_STATUS(status);
     printf("WS datafield ID is %u\n", set_rtt_mul_and_ws_action_field_ws_id);
     fflush(stdout);
+
+
     // Allocate and reset key objects
     status = fetch_rtt_mul_and_ws->keyAllocate(&fetch_rtt_mul_and_ws_key1);
     CHECK_BF_STATUS(status);
@@ -215,6 +220,13 @@ void Bfruntime::initBfRtTablesRegisters(){
     status = fetch_rtt_mul_and_ws->dataReset(set_rtt_mul_and_ws_action_id, fetch_rtt_mul_and_ws_data2.get());
     CHECK_BF_STATUS(status);
 
+    status = fetch_rtt_mul_and_ws->attributeAllocate(bfrt::TableAttributesType::IDLE_TABLE_RUNTIME, bfrt::TableAttributesIdleTableMode::NOTIFY_MODE, &fetch_rtt_mul_and_ws_attributes);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_attributes->idleTableNotifyModeSet(true, idle_time_callback, Bfruntime::fetch_rtt_mul_and_ws_key_ttl_query_interval, Bfruntime::fetch_rtt_mul_and_ws_key_max_ttl, Bfruntime::fetch_rtt_mul_and_ws_key_min_ttl, Bfruntime::fetch_rtt_mul_and_ws_key_cookie);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->tableAttributesSet(*session, dev_tgt, *fetch_rtt_mul_and_ws_attributes);
+    CHECK_BF_STATUS(status);
+    
     // set consistent initial currentWorkingCopy in CP and DP
     this->currentWorkingCopy = 0;
     this->set_working_copy(this->currentWorkingCopy);
@@ -430,7 +442,7 @@ bf_status_t Bfruntime::get_queuing_info(port_t egressPort, uint64_t &avgQdepth, 
 bf_status_t Bfruntime::add_rtt_ws_entry_pair(const rtt_ws_entry_pair_info_t &info){
 
     bf_status_t status;
-
+    
     // Prepare key1
     status = fetch_rtt_mul_and_ws_key1->setValue(fetch_rtt_mul_and_ws_key_ipv4_src_id, static_cast<uint64_t>(info.srcIP));
     CHECK_BF_STATUS(status);
@@ -447,7 +459,8 @@ bf_status_t Bfruntime::add_rtt_ws_entry_pair(const rtt_ws_entry_pair_info_t &inf
     CHECK_BF_STATUS(status);
     status = fetch_rtt_mul_and_ws_data1->setValue(set_rtt_mul_and_ws_action_field_ws_id, static_cast<uint64_t>(info.srcWS));
     CHECK_BF_STATUS(status);
-
+    status = fetch_rtt_mul_and_ws_data1->setValue(set_rtt_mul_and_ws_action_field_entry_ttl_id, static_cast<uint64_t>(Bfruntime::fetch_rtt_mul_and_ws_common_timeout));
+    CHECK_BF_STATUS(status);
 
     // Prepare key2
     status = fetch_rtt_mul_and_ws_key2->setValue(fetch_rtt_mul_and_ws_key_ipv4_src_id, static_cast<uint64_t>(info.dstIP));
@@ -464,7 +477,9 @@ bf_status_t Bfruntime::add_rtt_ws_entry_pair(const rtt_ws_entry_pair_info_t &inf
     CHECK_BF_STATUS(status);
     status = fetch_rtt_mul_and_ws_data2->setValue(set_rtt_mul_and_ws_action_field_ws_id, static_cast<uint64_t>(info.dstWS));
     CHECK_BF_STATUS(status);
-
+    status = fetch_rtt_mul_and_ws_data2->setValue(set_rtt_mul_and_ws_action_field_entry_ttl_id, static_cast<uint64_t>(Bfruntime::fetch_rtt_mul_and_ws_common_timeout));
+    CHECK_BF_STATUS(status);
+    
     // status = pcpp_session->beginBatch();CHECK_BF_STATUS(status);
 
     status = fetch_rtt_mul_and_ws->tableEntryAdd(*pcpp_session, dev_tgt, *fetch_rtt_mul_and_ws_key1, *fetch_rtt_mul_and_ws_data1);
@@ -476,4 +491,32 @@ bf_status_t Bfruntime::add_rtt_ws_entry_pair(const rtt_ws_entry_pair_info_t &inf
     // status = pcpp_session->endBatch(false);CHECK_BF_STATUS(status);
 
     return status;
+}
+
+void Bfruntime::fetch_rtt_mul_and_ws_aging_cb(const bf_rt_target_t &dev_tgt, const bfrt::BfRtTableKey *table_key, void *cookie){
+    bf_status_t status; 
+    uint64_t srcIP;
+    uint64_t dstIP;
+    uint64_t srcPort;
+    uint64_t dstPort;
+
+    status = table_key->getValue(fetch_rtt_mul_and_ws_key_ipv4_dst_id, &dstIP); CHECK_BF_STATUS(status);
+    status = table_key->getValue(fetch_rtt_mul_and_ws_key_ipv4_src_id, &srcIP); CHECK_BF_STATUS(status);
+    status = table_key->getValue(fetch_rtt_mul_and_ws_key_tcp_dst_port_id, &srcPort); CHECK_BF_STATUS(status);
+    status = table_key->getValue(fetch_rtt_mul_and_ws_key_tcp_src_port_id, &dstPort); CHECK_BF_STATUS(status);
+    (void) cookie;
+
+    printf("Aging out <srcIP:0x%08lX, dstIP:0x%08lX, srcPort:0x%04lX, dstPort:0x%04lX> entry.\n", srcIP, dstIP, srcPort, dstPort);
+    
+    try{
+        status = fetch_rtt_mul_and_ws->tableEntryDel(*pcpp_session, dev_tgt, *table_key); CHECK_BF_STATUS(status);
+    }catch(...){
+        printf("WARNING: Could not find the matching entry");
+    }
+    status = this->pcpp_session->sessionCompleteOperations(); CHECK_BF_STATUS(status);
+}
+
+void fetch_rtt_mul_and_ws_aging_cb_wrapper(const bf_rt_target_t &dev_tgt, const bfrt::BfRtTableKey *key, void *cookie){
+    Bfruntime &bfrt = Bfruntime::getInstance();
+    bfrt.fetch_rtt_mul_and_ws_aging_cb(dev_tgt, key, cookie);
 }
