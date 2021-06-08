@@ -1,12 +1,17 @@
 #ifndef BFRT_UTILS_H
 #define BFRT_UTILS_H
 
-#define DECLARE_BFRT_TABLE_VARS(tableName) \
+#define DECLARE_BFRT_REG_VARS(regName) \
+    const bfrt::BfRtTable *regName = nullptr; \
+    std::unique_ptr<bfrt::BfRtTableKey> regName##_key; \
+    std::unique_ptr<bfrt::BfRtTableData> regName##_data; \
+    bf_rt_id_t regName##_key_id = 0; \
+    bf_rt_id_t regName##_data_id = 0;
+
+/* #define DECLARE_BFRT_TABLE_COMMON_VARS(tableName) \
     const bfrt::BfRtTable *tableName = nullptr; \
     std::unique_ptr<bfrt::BfRtTableKey> tableName##_key; \
-    std::unique_ptr<bfrt::BfRtTableData> tableName##_data; \
-    bf_rt_id_t tableName##_key_id = 0; \
-    bf_rt_id_t tableName##_data_id = 0;
+    std::unique_ptr<bfrt::BfRtTableData> tableName##_data; */
 
 #define STRINGIFY(X) #X
 

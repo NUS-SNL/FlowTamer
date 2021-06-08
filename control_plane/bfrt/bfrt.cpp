@@ -89,7 +89,13 @@ Bfruntime& Bfruntime::getInstance(){
 
 
 Bfruntime::Bfruntime(){}
-Bfruntime::~Bfruntime(){}
+Bfruntime::~Bfruntime(){
+    bf_status_t status;
+
+    status = this->session->sessionDestroy(); CHECK_BF_STATUS(status);
+    status = this->pcpp_session->sessionDestroy(); CHECK_BF_STATUS(status);
+
+}
 
 void Bfruntime::init(){
     bf_status_t status;
@@ -103,6 +109,12 @@ void Bfruntime::init(){
     // Create a new BfRt session
     this->session = bfrt::BfRtSession::sessionCreate();
     if(this->session == nullptr){
+        printf("ERROR: Couldn't create BfRtSession\n");
+        exit(1); 
+    }
+
+    this->pcpp_session = bfrt::BfRtSession::sessionCreate();
+    if(this->pcpp_session == nullptr){
         printf("ERROR: Couldn't create BfRtSession\n");
         exit(1); 
     }
@@ -154,6 +166,53 @@ void Bfruntime::initBfRtTablesRegisters(){
 
     // working_copy register index is always going to be zero
     status = working_copy_key->setValue(working_copy_key_id, static_cast<uint64_t>(0));
+    CHECK_BF_STATUS(status);
+
+
+    /* Init table fetch_rtt_mul_and_ws */
+    // Get the table
+    status = bf_rt_info->bfrtTableFromNameGet("SwitchIngress.adjust_rwnd.fetch_rtt_mul_and_ws", &fetch_rtt_mul_and_ws); 
+    CHECK_BF_STATUS(status);
+
+    // Init keyField Ids
+    status = fetch_rtt_mul_and_ws->keyFieldIdGet("hdr.ipv4.src_addr", &fetch_rtt_mul_and_ws_key_ipv4_src_id);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->keyFieldIdGet("hdr.ipv4.dst_addr", &fetch_rtt_mul_and_ws_key_ipv4_dst_id);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->keyFieldIdGet("hdr.tcp.src_port", &fetch_rtt_mul_and_ws_key_tcp_src_port_id);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->keyFieldIdGet("hdr.tcp.dst_port", &fetch_rtt_mul_and_ws_key_tcp_dst_port_id);
+    CHECK_BF_STATUS(status);
+    // Init actionId
+    status = fetch_rtt_mul_and_ws->actionIdGet("SwitchIngress.adjust_rwnd.set_rtt_mul_and_ws", &set_rtt_mul_and_ws_action_id);
+    CHECK_BF_STATUS(status);
+    printf("Action ID for set_rtt_mul_and_ws is %d\n", set_rtt_mul_and_ws_action_id);
+    // Init dataField Ids
+    status = fetch_rtt_mul_and_ws->dataFieldIdGet("rtt_mul", set_rtt_mul_and_ws_action_id, &set_rtt_mul_and_ws_action_field_rtt_mul_id);
+    CHECK_BF_STATUS(status);
+    printf("RTT MUL datafield ID is %u\n", set_rtt_mul_and_ws_action_field_rtt_mul_id);
+    fflush(stdout);
+    status = fetch_rtt_mul_and_ws->dataFieldIdGet("ws", set_rtt_mul_and_ws_action_id, &set_rtt_mul_and_ws_action_field_ws_id);
+    CHECK_BF_STATUS(status);
+    printf("WS datafield ID is %u\n", set_rtt_mul_and_ws_action_field_ws_id);
+    fflush(stdout);
+    // Allocate and reset key objects
+    status = fetch_rtt_mul_and_ws->keyAllocate(&fetch_rtt_mul_and_ws_key1);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->keyReset(fetch_rtt_mul_and_ws_key1.get());
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->keyAllocate(&fetch_rtt_mul_and_ws_key2);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->keyReset(fetch_rtt_mul_and_ws_key2.get());
+    CHECK_BF_STATUS(status);
+    // Allocate and reset data objects
+    status = fetch_rtt_mul_and_ws->dataAllocate(&fetch_rtt_mul_and_ws_data1);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->dataReset(set_rtt_mul_and_ws_action_id, fetch_rtt_mul_and_ws_data1.get());
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->dataAllocate(&fetch_rtt_mul_and_ws_data2);
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws->dataReset(set_rtt_mul_and_ws_action_id, fetch_rtt_mul_and_ws_data2.get());
     CHECK_BF_STATUS(status);
 
     // set consistent initial currentWorkingCopy in CP and DP
@@ -364,5 +423,57 @@ bf_status_t Bfruntime::get_queuing_info(port_t egressPort, uint64_t &avgQdepth, 
         avgQdepth = total_eg_qdepth / total_pkt_count;
     }
     printf("avg_eg_qdepth_in_bytes: %lu\n", avgQdepth);
+    return status;
+}
+
+
+bf_status_t Bfruntime::add_rtt_ws_entry_pair(const rtt_ws_entry_pair_info_t &info){
+
+    bf_status_t status;
+
+    // Prepare key1
+    status = fetch_rtt_mul_and_ws_key1->setValue(fetch_rtt_mul_and_ws_key_ipv4_src_id, static_cast<uint64_t>(info.srcIP));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_key1->setValue(fetch_rtt_mul_and_ws_key_ipv4_dst_id, static_cast<uint64_t>(info.dstIP));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_key1->setValue(fetch_rtt_mul_and_ws_key_tcp_src_port_id, static_cast<uint64_t>(info.srcPort));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_key1->setValue(fetch_rtt_mul_and_ws_key_tcp_dst_port_id, static_cast<uint64_t>(info.dstPort));
+    CHECK_BF_STATUS(status);
+
+    
+    // Prepare data1
+    status = fetch_rtt_mul_and_ws_data1->setValue(set_rtt_mul_and_ws_action_field_rtt_mul_id, static_cast<uint64_t>(info.rtt_mul));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_data1->setValue(set_rtt_mul_and_ws_action_field_ws_id, static_cast<uint64_t>(info.srcWS));
+    CHECK_BF_STATUS(status);
+
+
+    // Prepare key2
+    status = fetch_rtt_mul_and_ws_key2->setValue(fetch_rtt_mul_and_ws_key_ipv4_src_id, static_cast<uint64_t>(info.dstIP));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_key2->setValue(fetch_rtt_mul_and_ws_key_ipv4_dst_id, static_cast<uint64_t>(info.srcIP));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_key2->setValue(fetch_rtt_mul_and_ws_key_tcp_src_port_id, static_cast<uint64_t>(info.dstPort));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_key2->setValue(fetch_rtt_mul_and_ws_key_tcp_dst_port_id, static_cast<uint64_t>(info.srcPort));
+    CHECK_BF_STATUS(status);
+
+    // Prepare data2
+    status = fetch_rtt_mul_and_ws_data2->setValue(set_rtt_mul_and_ws_action_field_rtt_mul_id, static_cast<uint64_t>(info.rtt_mul));
+    CHECK_BF_STATUS(status);
+    status = fetch_rtt_mul_and_ws_data2->setValue(set_rtt_mul_and_ws_action_field_ws_id, static_cast<uint64_t>(info.dstWS));
+    CHECK_BF_STATUS(status);
+
+    // status = pcpp_session->beginBatch();CHECK_BF_STATUS(status);
+
+    status = fetch_rtt_mul_and_ws->tableEntryAdd(*pcpp_session, dev_tgt, *fetch_rtt_mul_and_ws_key1, *fetch_rtt_mul_and_ws_data1);
+    CHECK_BF_STATUS(status);
+
+    status = fetch_rtt_mul_and_ws->tableEntryAdd(*pcpp_session, dev_tgt, *fetch_rtt_mul_and_ws_key2, *fetch_rtt_mul_and_ws_data2);
+    CHECK_BF_STATUS(status);
+
+    // status = pcpp_session->endBatch(false);CHECK_BF_STATUS(status);
+
     return status;
 }

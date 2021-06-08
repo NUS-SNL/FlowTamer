@@ -2,12 +2,19 @@
 #include <netinet/in.h> // this is for using ntohs() and htons() on non-Windows OS's
 #endif
 #include <unistd.h>
-#include "WorkerThread.h"
-#include "EthLayer.h"
-#include "IPv4Layer.h"
-#include "TcpLayer.h"
+#include <EthLayer.h>
+#include <IPv4Layer.h>
+#include <TcpLayer.h>
+#include <inttypes.h>
 // #include "PlatformSpecificUtils.h"
 #include <unordered_map>
+#include <chrono>
+#include <iostream>
+
+#include "pcpp/WorkerThread.h"
+#include "utils/types.hpp"
+#include "bfrt/bfrt.hpp"
+#include "utils/utils.hpp"
 
 struct wsKey{
 	uint32_t srcIP;
@@ -41,8 +48,7 @@ public:
         return r1.srcIP ^ r1.dstIP ^ r1.srcPort ^ r1.dstPort;
     }
 };
-typedef uint8_t ws_t;
-typedef uint64_t rtt_t;
+
 std::unordered_map<wsKey, ws_t, wsMapHashFn> WS_MAP;
 std::unordered_map<rttKey, rtt_t, rttMapHashFn> RTT_MAP;
 
@@ -179,6 +185,16 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 	m_CoreId = coreId;
 	m_Stop = false;
 
+	std::chrono::high_resolution_clock::time_point start_time, end_time, bfrt_end_time;
+	long long duration_usecs, bfrt_duration_usecs;
+
+	// auto s = std::chrono::high_resolution_clock::now();
+
+	Bfruntime& bfrt = Bfruntime::getInstance();
+	rtt_ws_entry_pair_info_t rtt_ws_info;
+	ws_t srcWS, dstWS;
+	bf_status_t status;
+
 	// initialize a packet array of size 64
 	pcpp::Packet* packetArr[64] = {};
 	// endless loop, until asking the thread to stop
@@ -189,7 +205,12 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 
 		if (numOfPackets > 0)
 		{
+			// printf("Received number of pkts: %d\n", numOfPackets);
+
 			for(int i=0; i<numOfPackets; i++){
+				
+				start_time = std::chrono::high_resolution_clock::now();
+
 				if(packetArr[i]->isPacketOfType(pcpp::TCP)){
 					pcpp::TcpLayer* tcpLayer = packetArr[i]->getLayerOfType<pcpp::TcpLayer>();
 					pcpp::IPv4Layer* ipLayer = packetArr[i]->getLayerOfType<pcpp::IPv4Layer>();
@@ -230,6 +251,13 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 							WS_MAP.insert({wkey, *windowScalePtr});
 							RTT_MAP.insert({rkey1, tstmp});
 							RTT_MAP.insert({rkey2, tstmp});
+
+							end_time = std::chrono::high_resolution_clock::now();
+
+							duration_usecs = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+							// printf("SYN pkt processing took %llu us.\n", duration_usecs);
+
 							
 						} else{ // SYN+ACK coming from receiver
 							// FlowKey fkey = {dstIP, srcIP, protoType, dstPort, srcPort};
@@ -242,6 +270,12 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 							// 	it->second.receiverWS = *windowScalePtr;
 							// }
 							WS_MAP.insert({wkey, *windowScalePtr});
+
+							end_time = std::chrono::high_resolution_clock::now();
+
+							duration_usecs = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+							// printf("SYN-ACK pkt processing took %llu us.\n", duration_usecs);
 						}
 					} else if(tcpHeader->finFlag == 1){ // handles FIN pkts from sender ONLY
 						// const auto& it = FLOW_MAP.find(fkey);
@@ -282,6 +316,41 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 						if(it2 != RTT_MAP.end()){
 							it2->second = tstmp; // - it2->second;
 						}
+
+						const auto& ws_src_it = WS_MAP.find({srcIP, srcPort});
+						const auto& ws_dst_it = WS_MAP.find({dstIP, dstPort});
+
+						if(ws_src_it != WS_MAP.end()){
+							srcWS = ws_src_it->second;
+						} else { printf("srcWS not found for this handshake"); exit(1);}
+						
+						if(ws_dst_it != WS_MAP.end()){
+							dstWS = ws_dst_it->second;
+						} else { printf("dstWS not found for this handshake"); exit(1);}
+
+						rtt_ws_info.srcIP   = ntohl(srcIP);
+						rtt_ws_info.dstIP   = ntohl(dstIP);
+						rtt_ws_info.srcPort = ntohs(srcPort);
+						rtt_ws_info.dstPort = ntohs(dstPort);
+						rtt_ws_info.rtt_mul = tstmp / 10000000;
+						rtt_ws_info.srcWS   = srcWS;
+						rtt_ws_info.dstWS   = dstWS;
+
+						end_time = std::chrono::high_resolution_clock::now();
+
+						status = bfrt.add_rtt_ws_entry_pair(rtt_ws_info);
+						CHECK_BF_STATUS(status);
+
+						bfrt_end_time = std::chrono::high_resolution_clock::now();
+
+						duration_usecs = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+						bfrt_duration_usecs = std::chrono::duration_cast<std::chrono::microseconds>(bfrt_end_time - end_time).count();
+
+						// printf("ACK pcpp pkt processing took %llu us.\n", duration_usecs);
+						// printf("ACK bfrt pkt processing took %llu us.\n", bfrt_duration_usecs);
+
+						printf("Added 2 entries successfully to rtt_ws_table\n");
+
 					} else { }
 				}
 			}
