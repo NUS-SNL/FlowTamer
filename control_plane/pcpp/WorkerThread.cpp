@@ -348,6 +348,8 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 
 						// printf("ACK pcpp pkt processing took %llu us.\n", duration_usecs);
 						// printf("ACK bfrt pkt processing took %llu us.\n", bfrt_duration_usecs);
+						(void) duration_usecs;
+						(void) bfrt_duration_usecs;
 
 						printf("Added 2 entries successfully to rtt_ws_table\n");
 
