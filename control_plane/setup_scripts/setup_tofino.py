@@ -18,7 +18,12 @@ elif hostname == 'tofino1b':
 elif hostname == 'tofino1c':
     fp_ports = [31]
 
-python_lib_append = '/home/cirlab/jarvis-tofino/harsh-tofino/inNetworkCC/control_plane'
+python_lib_append = ""
+
+if hostname == 'tofino1a' or hostname == 'tofino1b' or hostname == 'tofino1c':
+    python_lib_append = '/home/cirlab/jarvis-tofino/harsh-tofino/inNetworkCC/control_plane/setup_scripts'
+elif hostname == 'hep':
+    python_lib_append = '/home/tofino/jarvis-tofino/harsh-tofino/inNetworkCC/control_plane/setup_scripts'
 sys.path.append(python_lib_append)
 from LookUpTable import *
 
@@ -28,7 +33,7 @@ for fp_port in fp_ports:
         bfrt.port.port.add(DEV_PORT=dp, SPEED='BF_SPEED_10G', FEC='BF_FEC_TYP_NONE', AUTO_NEGOTIATION='PM_AN_FORCE_DISABLE', PORT_ENABLE=True)
 
 # Add CPU Ethernet ports separately
-if hostname == 'tofino1b' or hostname == 'tofino1c':  
+if hostname == 'tofino1b' or hostname == 'tofino1c':
     for lane in range(4):
         dp = bfrt.port.port_hdl_info.get(CONN_ID=33, CHNL_ID=lane, print_ents=False).data[b'$DEV_PORT']
         bfrt.port.port.add(DEV_PORT=dp, SPEED='BF_SPEED_10G', FEC='BF_FEC_TYP_NONE', PORT_ENABLE=True)
