@@ -129,12 +129,6 @@ int main(int argc, char **argv){
     /* Not using cmdline params in this minimal boiler plate */
     (void) argc; (void) argv;
 
-    /* Set up the SIGINT handler */
-    /* struct sigaction sigIntHandler;
-    sigIntHandler.sa_handler = interrupt_handler;
-    sigemptyset(&sigIntHandler.sa_mask);
-    sigIntHandler.sa_flags = 0;
-    sigaction(SIGINT, &sigIntHandler, NULL); */
     signal(SIGINT,interrupt_handler);
 
     bf_status_t status = 0;
