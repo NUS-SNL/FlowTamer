@@ -37,7 +37,7 @@ bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running){
     
     while(algo_running){
         status = bfrt.get_queuing_info(egressPort, currentAvgQdepth, currentWorkingCopy);
-        printf("%i\n",currentRwnd);
+        printf("Current Rwnd: %i\n",currentRwnd);
         if(currentAvgQdepth > upperQdepthThreshold){ // multiplicative decrement
             currentRwnd = max_rwnd(minimumRwnd, currentRwnd / rwndDecrement);
             status = bfrt.set_rwnd(egressPort, currentRwnd);

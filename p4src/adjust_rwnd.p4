@@ -46,6 +46,7 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
         }
         default_action = miss_rtt_ws_lookup;
         size = 65536;
+        idle_timeout = true;
     }
 
     action set_log_rwnd(bit<16> result) {
