@@ -100,12 +100,14 @@ header internal_hdr_h {
 
 header bridged_meta_h {
     INTERNAL_HEADER;
+    bit<48> ingress_timestamp;
     /* Add any metadata to be bridged from ig to eg */
 }
 
 header eg_mirror1_h {
     INTERNAL_HEADER;
-    bit<48> timestamp;
+    bit<48> timestamp1;
+    bit<48> timestamp2;
 }
 
 /* 
@@ -141,7 +143,8 @@ struct egress_metadata_t {
     bit<32> expected_seq_no;
     bit<32> curr_time;
     bit<32> rtt;
-    bit<48> ts_to_report;
+    bit<48> ts_to_report1;
+    bit<48> ts_to_report2;
 }
 
 

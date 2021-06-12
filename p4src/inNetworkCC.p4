@@ -88,6 +88,8 @@ control SwitchIngress(
 				
 			}		
 		}
+		// pass ingress_global_ts to egress for every pkt
+		hdr.bridged_meta.ingress_timestamp = ig_intr_md_from_prsr.global_tstamp; 
 	}
 
 }  // End of SwitchIngressControl
@@ -209,7 +211,8 @@ control SwitchEgressControl(
 		
 		if(eg_meta.eg_mirror1.isValid()){ // mirrored pkt
 			// Copy the eg_global_ts as src Eth address
-			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.timestamp;
+			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.timestamp1;
+			 hdr.ethernet.dst_addr = eg_meta.eg_mirror1.timestamp2;
 			 
 		} // end of mirrored pkt processing
 		else { // normal pkt
@@ -232,17 +235,18 @@ control SwitchEgressControl(
 
 			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN_ACK){ // either SYN or SYN-ACK
 				/* Set timestamp to report to CP and mirror the packet */
-				eg_meta.ts_to_report = eg_intr_md_from_prsr.global_tstamp;
+				eg_meta.ts_to_report1 = eg_intr_md_from_prsr.global_tstamp;
+				eg_meta.ts_to_report2 = 0x998877665544; // to be used for debugging
 				mirror_to_report_ts();
 			}
 
 			/* If it is SYN or ACK, do the RTT calculation */
 			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_ACK){
-				calculate_rtt.apply(hdr, eg_meta);
-
+				calculate_rtt.apply(eg_intr_md_from_prsr.global_tstamp, hdr, eg_meta); // returns rtt in eg_meta.rtt
 				if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_ACK && eg_meta.rtt_calc_status == HASH_TABLE_OP_SUCCESS){
 					// Mirror the ACK packet and include RTT in it
-					eg_meta.ts_to_report = (bit<48>)eg_meta.rtt;
+					eg_meta.ts_to_report1 = (bit<48>)eg_meta.rtt;
+					eg_meta.ts_to_report2 = 0x998877665544; // to be used for debugging
 					mirror_to_report_ts();
 				}
 			}

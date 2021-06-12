@@ -227,7 +227,8 @@ control SwitchEgressDeparser(
                 {
                     eg_meta.internal_hdr_type,
                     eg_meta.internal_hdr_info,
-                    eg_meta.ts_to_report
+                    eg_meta.ts_to_report1,
+                    eg_meta.ts_to_report2
                 }
                 );
         } // end of if

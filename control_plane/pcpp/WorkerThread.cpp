@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <iostream>
+#include <math.h>
 
 #include "pcpp/WorkerThread.h"
 #include "utils/types.hpp"
@@ -332,7 +333,7 @@ bool ReceiverWorkerThread::run(uint32_t coreId)
 						rtt_ws_info.dstIP   = ntohl(dstIP);
 						rtt_ws_info.srcPort = ntohs(srcPort);
 						rtt_ws_info.dstPort = ntohs(dstPort);
-						rtt_ws_info.rtt_mul = tstmp / 10000000;
+						rtt_ws_info.rtt_mul = (uint64_t)round(((float)tstmp / (float)10000000));
 						rtt_ws_info.srcWS   = srcWS;
 						rtt_ws_info.dstWS   = dstWS;
 

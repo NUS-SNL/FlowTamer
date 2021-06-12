@@ -29,7 +29,7 @@ struct hash_table_entry {
 }
 
 // @pa_no_overlay("egress","eg_meta.rtt")
-control CalculateRTT(inout header_t hdr, inout egress_metadata_t eg_meta){
+control CalculateRTT(in bit<48> egress_global_ts, inout header_t hdr, inout egress_metadata_t eg_meta){
 
     Hash<bit<32>>(HashAlgorithm_t.CRC32) hash_pkt_fingerprint;
     Hash<bit<16>>(HashAlgorithm_t.CRC16) hashfunction_table1;
@@ -38,6 +38,7 @@ control CalculateRTT(inout header_t hdr, inout egress_metadata_t eg_meta){
     bit<16> hash_table1_index;
     bit<32> syn_timestamp;
     bit<32> min_val;
+    bit<32> queuing_delay;
 
     /* NOTE: Expected seq number has already been adjusted for SYN or ACK
        by table 'classify_tcp_pkt' in the egress control. */
@@ -107,20 +108,25 @@ control CalculateRTT(inout header_t hdr, inout egress_metadata_t eg_meta){
         syn_timestamp = reg_lookup_hash_table1.execute(hash_table1_index);
     }
 
-    Register<bit<32>,bit<1>>(1, 0) reg_adjust_rtt; // size = 1, initial_val = 0
-    RegisterAction<bit<32>,bit<1>,bit<32>>(reg_adjust_rtt) do_adjust_rtt = {
-        void apply(inout bit<32> reg_val, out bit<32> rv){
-            rv = eg_meta.rtt + MAX_UINT32;
-        }
-    };
+    action calc_queuing_delay(){
+        queuing_delay = (bit<32>)(egress_global_ts - eg_meta.bridged.ingress_timestamp);
+    }
+
+    action adjust_rtt_queuing_delay(){
+        eg_meta.rtt = eg_meta.rtt - queuing_delay;   
+    }
 
     
-    action adjust_rtt(){
-        eg_meta.rtt = do_adjust_rtt.execute(0);
+    action adjust_rtt_wrap_around(){
+        eg_meta.rtt = eg_meta.rtt + MAX_UINT32;
     }
 
 
     apply {
+        
+        // calculate queuing delay
+        calc_queuing_delay();
+
         // compute 'pkt_fingerprint' and 'hash_table1_index'
         get_pkt_fingerprint();
         get_htable_index();
@@ -137,8 +143,9 @@ control CalculateRTT(inout header_t hdr, inout egress_metadata_t eg_meta){
                 /* TODO: Try to reduce stages for below wrap-around logic? */
                 min_val = min(eg_meta.curr_time, syn_timestamp);
                 if(min_val == eg_meta.curr_time){ // eg_meta.curr_time < syn_timestamp 
-                    adjust_rtt(); // wrap around correction
+                    adjust_rtt_wrap_around(); // wrap around correction
                 }
+                adjust_rtt_queuing_delay();
                 eg_meta.rtt_calc_status = HASH_TABLE_OP_SUCCESS;
             }
             else{
