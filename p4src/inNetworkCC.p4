@@ -149,25 +149,23 @@ control SwitchEgressControl(
 	action set_SYN_pkt_type_and_expected_seq(){
 		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_SYN; 
 		eg_meta.expected_seq_no = hdr.tcp.seq_no + 1;
-		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0];
 	}
 	action set_SYN_pkt_type_and_expected_seq_adjust_ts(){ 
 		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_SYN; 
 		eg_meta.expected_seq_no = hdr.tcp.seq_no + 1;
 		// Ensures no ZERO ts inserted in hashtable
-		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0] + 1;
+		eg_meta.curr_time = eg_meta.curr_time + 1;
 	}
 	action set_ACK_pkt_type_and_expected_seq(){
 		eg_meta.tcp_pkt_type = TCP_PKT_TYPE_ACK; 
 		eg_meta.expected_seq_no = hdr.tcp.seq_no;
-		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0];
 	}
 
 
 	table prepare_tcp_meta_info{
 		key = {
 			hdr.tcp.flags: ternary;
-			eg_intr_md_from_prsr.global_tstamp[31:0]: ternary;
+			eg_meta.curr_time: ternary;
 			hdr.ipv4.total_len: range;
 		}
 		actions = {
@@ -200,8 +198,14 @@ control SwitchEgressControl(
 
 	CalculateRTT() calculate_rtt; // instantiate the control
 
+	action get_curr_time(){
+		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0];
+	}
 
 	apply{
+		// fill eg_meta.curr_time. Used by tbl prepare_tcp_meta_info
+		// and calculate_rtt control
+		get_curr_time(); 
 		
 		if(eg_meta.eg_mirror1.isValid()){ // mirrored pkt
 			// Copy the eg_global_ts as src Eth address
