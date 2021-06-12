@@ -73,15 +73,11 @@ reg_new_rwnd = bfrt.inNetworkCC.pipe.SwitchIngress.new_rwnd
 tbl_log_rwnd = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.tbl_log_rwnd
 tbl_log_rtt_multiplier = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.tbl_log_rtt_multiplier
 tbl_antilog_log_sum = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.tbl_antilog_log_sum
-tbl_fetch_rtt_mul_and_ws = bfrt.inNetworkCC.pipe.SwitchIngress.adjust_rwnd.fetch_rtt_mul_and_ws
 
-# reg_new_rwnd.add(REGISTER_INDEX=129, f1=400)
-# tbl_fetch_rtt_mul_and_ws.add_with_set_rtt_mul_and_ws(src_addr="10.1.1.2", dst_addr="10.1.1.1", src_port=5201, dst_port=7777, rtt_mul=2, ws=6)
-# tbl_fetch_rtt_mul_and_ws.mod_with_set_rtt_mul_and_ws(src_addr="10.1.1.2", dst_addr="10.1.1.1", src_port=5201, dst_port=7777, rtt_mul=1, ws=0)
 for i in zip(log_keys,log_masks,log_vals):
     tbl_log_rwnd.add_with_set_log_rwnd(base_rwnd=int(i[0],base=2), base_rwnd_mask=int(i[1],base=2), MATCH_PRIORITY=1, result=i[2])
     tbl_log_rtt_multiplier.add_with_set_log_rtt_multiplier(rtt_multiplier=int(i[0],base=2), rtt_multiplier_mask=int(i[1],base=2), MATCH_PRIORITY=1, result=i[2])
-
+    
 bfrt.batch_begin()
 for i in zip(exp_keys,exp_vals):
         tbl_antilog_log_sum.add_with_set_rtt_scaled_rwnd(log_sum=i[0], result=i[1])
