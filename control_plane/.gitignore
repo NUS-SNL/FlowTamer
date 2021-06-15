@@ -3,7 +3,7 @@
 *.tofino
 *.tofino2
 zlog-cfg-cur
-bf_drivers.log
+bf_drivers.log*
 inNetworkCC
 inNetworkCC-debug
 build/*
