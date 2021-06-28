@@ -31,6 +31,8 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
 
     action miss_rtt_ws_lookup(){
         /* TODO: on miss, inform the CP about it */
+        // rtt_multiplier = 1;
+        // ws_shift = 3;
     }
     
     table fetch_rtt_mul_and_ws {
@@ -128,6 +130,11 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
             14: rshift14();
 		}
     }
+    action set_rtt_mul_ws_innetworkcc_info(){
+        hdr.innetworkcc_info.rtt_mul = rtt_multiplier;
+        hdr.innetworkcc_info.ws = (bit<16>) ws_shift;  
+    }
+
     apply{
         if(hdr.tcp.isValid()){
             fetch_rtt_mul_and_ws.apply();
@@ -139,6 +146,10 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
             
             tbl_antilog_log_sum.apply();
             tbl_right_shift.apply(); 
+            
+            if(hdr.innetworkcc_info.isValid()){
+                set_rtt_mul_ws_innetworkcc_info();
+            }
         }
     }
 }

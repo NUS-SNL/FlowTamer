@@ -53,16 +53,8 @@ header tcp_h {
     bit<32> seq_no;
     bit<32> ack_no;
     bit<4> data_offset;
-    bit<4> res;
+    bit<4> res;  // 3 bits of res, 1 bit of nonce. To match Pcap++ hdr def.
     bit<8> flags;
- /* bit<1> cwr;
-    bit<1> ece;
-    bit<1> urg;
-    bit<1> ack;
-    bit<1> psh;
-    bit<1> rst;
-    bit<1> syn;
-    bit<1> fin; */
     bit<16> window;
     bit<16> checksum;
     bit<16> urgent_ptr;
@@ -98,6 +90,7 @@ header internal_hdr_h {
     INTERNAL_HEADER;
 }
 
+/* Any metadata to be bridged from ig to eg */
 header bridged_meta_h {
     INTERNAL_HEADER;
     bit<48> ingress_timestamp;
@@ -116,6 +109,17 @@ struct port_metadata_t {
 };
 */
 
+
+header innetworkcc_info_h {// 20 bytes
+    bit<32> algo_rwnd;
+    bit<32> rtt_mul;
+    bit<32> qdepth_sum;
+    bit<32> pkt_count;
+    bit<32> qdepth;
+    bit<16> final_rwnd;
+    bit<16>  ws;
+}
+
 struct header_t {
     bridged_meta_h bridged_meta;
 	ethernet_h ethernet;
@@ -123,6 +127,7 @@ struct header_t {
     arp_h arp;
 	tcp_h tcp;
 	udp_h udp;
+    innetworkcc_info_h innetworkcc_info;
 }
 
 struct ingress_metadata_t {
@@ -145,6 +150,7 @@ struct egress_metadata_t {
     bit<32> rtt;
     bit<48> ts_to_report1;
     bit<48> ts_to_report2;
+    bit<16> l4_payload_checksum;
 }
 
 

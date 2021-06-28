@@ -63,12 +63,15 @@ parser SwitchIngressParser(
 
 	state parse_ipv4 {
 		pkt.extract(hdr.ipv4);
+
         tcp_checksum.subtract({
             hdr.ipv4.src_addr,
             hdr.ipv4.dst_addr,
             8w0, hdr.ipv4.protocol });
-		transition select(hdr.ipv4.protocol){
-			(bit<8>) ipv4_proto_t.TCP: parse_tcp;
+		
+        transition select(hdr.ipv4.protocol, hdr.ipv4.total_len){	
+            ((bit<8>) ipv4_proto_t.TCP, 80..65535): parse_tcp_data;
+            ((bit<8>) ipv4_proto_t.TCP, _): parse_tcp;
 		    default: accept;
 		}
 	}
@@ -87,20 +90,41 @@ parser SwitchIngressParser(
             hdr.tcp.ack_no,
             hdr.tcp.data_offset, hdr.tcp.res, 
             hdr.tcp.flags,
-         /* hdr.tcp.cwr,
-            hdr.tcp.ece,
-            hdr.tcp.urg,
-            hdr.tcp.ack,
-            hdr.tcp.psh,
-            hdr.tcp.rst,
-            hdr.tcp.syn,
-            hdr.tcp.fin, */
             hdr.tcp.window,
             hdr.tcp.checksum,
             hdr.tcp.urgent_ptr });
         ig_meta.l4_payload_checksum = tcp_checksum.get();        
 		transition accept;
 	}
+
+    state parse_tcp_data {
+		pkt.extract(hdr.tcp);
+        pkt.extract(hdr.innetworkcc_info);
+
+        tcp_checksum.subtract({
+            hdr.tcp.src_port,
+            hdr.tcp.dst_port,
+            hdr.tcp.seq_no,
+            hdr.tcp.ack_no,
+            hdr.tcp.data_offset, 
+            hdr.tcp.res,
+            hdr.tcp.flags,
+            hdr.tcp.window,
+            hdr.tcp.checksum,
+            hdr.tcp.urgent_ptr,
+            hdr.innetworkcc_info.algo_rwnd,
+            hdr.innetworkcc_info.rtt_mul,
+            hdr.innetworkcc_info.qdepth_sum,
+            hdr.innetworkcc_info.pkt_count,
+            hdr.innetworkcc_info.qdepth, 
+            hdr.innetworkcc_info.final_rwnd,
+            hdr.innetworkcc_info.ws
+            });
+
+        ig_meta.l4_payload_checksum = tcp_checksum.get();
+
+		transition accept;
+    }
 }
 
 
@@ -115,27 +139,55 @@ control SwitchIngressDeparser(
 
     Checksum() tcp_checksum;    
     apply {
-        hdr.tcp.checksum = tcp_checksum.update({
-            hdr.ipv4.src_addr,
-            hdr.ipv4.dst_addr,
-            8w0, hdr.ipv4.protocol,
-            hdr.tcp.src_port,
-            hdr.tcp.dst_port,
-            hdr.tcp.seq_no,
-            hdr.tcp.ack_no,
-            hdr.tcp.data_offset, hdr.tcp.res, 
-            hdr.tcp.flags,
-        /*  hdr.tcp.cwr,
-            hdr.tcp.ece,
-            hdr.tcp.urg,
-            hdr.tcp.ack,
-            hdr.tcp.psh,
-            hdr.tcp.rst,
-            hdr.tcp.syn,
-            hdr.tcp.fin, */
-            hdr.tcp.window,
-            hdr.tcp.urgent_ptr,
-            ig_meta.l4_payload_checksum }); 
+
+        if(hdr.innetworkcc_info.isValid()){
+            hdr.tcp.checksum = tcp_checksum.update({
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr,
+                8w0, hdr.ipv4.protocol,
+                hdr.tcp.src_port,
+                hdr.tcp.dst_port,
+                hdr.tcp.seq_no,
+                hdr.tcp.ack_no,
+                hdr.tcp.data_offset, 
+                hdr.tcp.res, 
+                hdr.tcp.flags,
+                hdr.tcp.window,
+                hdr.tcp.urgent_ptr,
+                hdr.innetworkcc_info.algo_rwnd,
+                hdr.innetworkcc_info.rtt_mul,
+                hdr.innetworkcc_info.qdepth_sum,
+                hdr.innetworkcc_info.pkt_count,
+                hdr.innetworkcc_info.qdepth, 
+                hdr.innetworkcc_info.final_rwnd,
+                hdr.innetworkcc_info.ws,
+                ig_meta.l4_payload_checksum
+            }); 
+        }
+        else{
+            hdr.tcp.checksum = tcp_checksum.update({
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr,
+                8w0, hdr.ipv4.protocol,
+                hdr.tcp.src_port,
+                hdr.tcp.dst_port,
+                hdr.tcp.seq_no,
+                hdr.tcp.ack_no,
+                hdr.tcp.data_offset, hdr.tcp.res, 
+                hdr.tcp.flags,
+            /*  hdr.tcp.cwr,
+                hdr.tcp.ece,
+                hdr.tcp.urg,
+                hdr.tcp.ack,
+                hdr.tcp.psh,
+                hdr.tcp.rst,
+                hdr.tcp.syn,
+                hdr.tcp.fin, */
+                hdr.tcp.window,
+                hdr.tcp.urgent_ptr,
+                ig_meta.l4_payload_checksum }); 
+        }
+
         pkt.emit(hdr);
     }
 }
@@ -151,8 +203,8 @@ parser SwitchEgressParser(
     out egress_intrinsic_metadata_t eg_intr_md,
     out egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
 
+    Checksum() tcp_checksum;
     internal_hdr_h internal_hdr;
-
     state start {
         pkt.extract(eg_intr_md);
         
@@ -189,8 +241,15 @@ parser SwitchEgressParser(
 
 	state parse_ipv4 {
 		pkt.extract(hdr.ipv4);
-		transition select(hdr.ipv4.protocol){
-			(bit<8>) ipv4_proto_t.TCP: parse_tcp;
+
+        tcp_checksum.subtract({
+            hdr.ipv4.src_addr,
+            hdr.ipv4.dst_addr,
+            8w0, hdr.ipv4.protocol });
+		
+		transition select(hdr.ipv4.protocol, hdr.ipv4.total_len){	
+            ((bit<8>) ipv4_proto_t.TCP, 80..65535): parse_tcp_data;
+            ((bit<8>) ipv4_proto_t.TCP, _): parse_tcp;
 		    default: accept;
 		}
 	}
@@ -202,8 +261,48 @@ parser SwitchEgressParser(
 
 	state parse_tcp {
 		pkt.extract(hdr.tcp);
-		transition accept;
+		tcp_checksum.subtract({
+            hdr.tcp.src_port,
+            hdr.tcp.dst_port,
+            hdr.tcp.seq_no,
+            hdr.tcp.ack_no,
+            hdr.tcp.data_offset, hdr.tcp.res, 
+            hdr.tcp.flags,
+            hdr.tcp.window,
+            hdr.tcp.checksum,
+            hdr.tcp.urgent_ptr });
+        eg_meta.l4_payload_checksum = tcp_checksum.get();
+        
+        transition accept;
 	}
+
+    state parse_tcp_data {
+		pkt.extract(hdr.tcp);
+        pkt.extract(hdr.innetworkcc_info);
+
+        tcp_checksum.subtract({
+            hdr.tcp.src_port,
+            hdr.tcp.dst_port,
+            hdr.tcp.seq_no,
+            hdr.tcp.ack_no,
+            hdr.tcp.data_offset, 
+            hdr.tcp.res,
+            hdr.tcp.flags,
+            hdr.tcp.window,
+            hdr.tcp.checksum,
+            hdr.tcp.urgent_ptr,
+            hdr.innetworkcc_info.algo_rwnd,
+            hdr.innetworkcc_info.rtt_mul,
+            hdr.innetworkcc_info.qdepth_sum,
+            hdr.innetworkcc_info.pkt_count, 
+            hdr.innetworkcc_info.qdepth, 
+            hdr.innetworkcc_info.final_rwnd,
+            hdr.innetworkcc_info.ws
+            });
+
+        eg_meta.l4_payload_checksum = tcp_checksum.get();
+		transition accept;
+    }    
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +316,7 @@ control SwitchEgressDeparser(
     in egress_intrinsic_metadata_t eg_intr_md,
     in egress_intrinsic_metadata_from_parser_t eg_intr_md_from_prsr){
 
+    Checksum() tcp_checksum;
     Mirror() mirror;
 
     apply {
@@ -232,8 +332,48 @@ control SwitchEgressDeparser(
                 }
                 );
         } // end of if
+        if(hdr.innetworkcc_info.isValid()){
+            hdr.tcp.checksum = tcp_checksum.update({
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr,
+                8w0, hdr.ipv4.protocol,
+                hdr.tcp.src_port,
+                hdr.tcp.dst_port,
+                hdr.tcp.seq_no,
+                hdr.tcp.ack_no,
+                hdr.tcp.data_offset, 
+                hdr.tcp.res,
+                hdr.tcp.flags,
+                hdr.tcp.window,
+                hdr.tcp.urgent_ptr,
+                hdr.innetworkcc_info.algo_rwnd,
+                hdr.innetworkcc_info.rtt_mul,
+                hdr.innetworkcc_info.qdepth_sum,
+                hdr.innetworkcc_info.pkt_count,
+                hdr.innetworkcc_info.qdepth, 
+                hdr.innetworkcc_info.final_rwnd,
+                hdr.innetworkcc_info.ws,
+                eg_meta.l4_payload_checksum
+            }); 
+        }
+        else{
+            hdr.tcp.checksum = tcp_checksum.update({
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr,
+                8w0, hdr.ipv4.protocol,
+                hdr.tcp.src_port,
+                hdr.tcp.dst_port,
+                hdr.tcp.seq_no,
+                hdr.tcp.ack_no,
+                hdr.tcp.data_offset, hdr.tcp.res, 
+                hdr.tcp.flags,
+                hdr.tcp.window,
+                hdr.tcp.urgent_ptr,
+                eg_meta.l4_payload_checksum }); 
+        }
 
         pkt.emit(hdr);
+
     }
 }
 

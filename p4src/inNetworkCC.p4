@@ -24,6 +24,7 @@ const bit<8> TCP_FLAG_SYN = 2;
 const bit<8> TCP_FLAG_RST = 4;
 const bit<8> TCP_FLAG_PSH = 8;
 const bit<8> TCP_FLAG_ACK = 16;
+const bit<8> INGRESS_PORT = 129;
 
 control SwitchIngress(
     inout header_t hdr,
@@ -32,6 +33,10 @@ control SwitchIngress(
     in ingress_intrinsic_metadata_from_parser_t ig_intr_md_from_prsr,
     inout ingress_intrinsic_metadata_for_deparser_t ig_intr_md_for_dprsr,
     inout ingress_intrinsic_metadata_for_tm_t ig_intr_md_for_tm){
+
+	action _nop(){
+
+	}
 
 	Register<bit<32>, bit<8>>(256) new_rwnd;
     RegisterAction<bit<32>, bit<8>, bit<32>>(new_rwnd)
@@ -61,7 +66,8 @@ control SwitchIngress(
 	adjustRWND() adjust_rwnd;
 
 	action read_new_rwnd_from_reg(){
-		ig_meta.base_rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
+		// ig_meta.base_rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
+		ig_meta.base_rwnd = get_new_rwnd.execute(INGRESS_PORT);
 	}
 	
 	apply {
@@ -75,7 +81,6 @@ control SwitchIngress(
 		}
 		if(hdr.tcp.isValid() && (hdr.tcp.flags & 0b00000010) !=1){ // && ig_meta.port_meta.apply_algo ==
 			// TCP pkts except SYN and SYN-ACK
-			
 			read_new_rwnd_from_reg(); // returns the value from register in ig_meta.base_rwnd
 			
 			if(ig_meta.base_rwnd != 0){ 
@@ -84,7 +89,12 @@ control SwitchIngress(
 				adjust_rwnd.apply(hdr, ig_meta);
 
 				// ASSUMPTION: by this point 'rtt_scaled_rwnd' variable would be WS adjusted and no more than 65535. BUG possibility for high new_rwnd/rtt and low WS
+				if(hdr.innetworkcc_info.isValid()){
+					hdr.innetworkcc_info.algo_rwnd = ig_meta.base_rwnd;
+					hdr.innetworkcc_info.final_rwnd   = ig_meta.rtt_scaled_rwnd[15:0];
+				}else {
 				hdr.tcp.window = min(hdr.tcp.window, ig_meta.rtt_scaled_rwnd[15:0]);
+				}
 				
 			}		
 		}
@@ -103,11 +113,13 @@ control SwitchEgressControl(
     inout egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr,
     inout egress_intrinsic_metadata_for_output_port_t eg_intr_md_for_oport){
 
+	bit<1> v;	
+	bit<32> read_sum_qdepth;
+	bit<32> read_pkt_count;
 	action _nop(){
 
 	}
 
-	bit<1> v;	
 	Register<bit<1>, bit<1>>(1) working_copy;
     RegisterAction<bit<1>, bit<1>, bit<1>>(working_copy)
     get_working_copy = { 
@@ -118,29 +130,33 @@ control SwitchEgressControl(
 	Register<bit<32>, bit<8>>(256) sum_eg_deq_qdepth0;
 	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_eg_deq_qdepth0)
 	store_sum_eg_deq_qdepth0 = { 
-		void apply(inout bit<32> register_data){
+		void apply(inout bit<32> register_data, out bit<32> result){
 			register_data = register_data + (bit<32>)eg_intr_md.deq_qdepth;
+			result = register_data;
 		}
 	};
 	Register<bit<32>, bit<8>>(256) pkt_count0;
 	RegisterAction<bit<32>, bit<8>, bit<32>>(pkt_count0)
 	store_pkt_count0 = { 
-		void apply(inout bit<32> register_data){
+		void apply(inout bit<32> register_data, out bit<32> result){
 			register_data = register_data + 1;
+			result = register_data;
 		}
 	};
 	Register<bit<32>, bit<8>>(256) sum_eg_deq_qdepth1;
 	RegisterAction<bit<32>, bit<8>, bit<32>>(sum_eg_deq_qdepth1)
 	store_sum_eg_deq_qdepth1 = { 
-		void apply(inout bit<32> register_data){
+		void apply(inout bit<32> register_data, out bit<32> result){
 			register_data = register_data + (bit<32>)eg_intr_md.deq_qdepth;
+			result = register_data;
 		}
 	};
 	Register<bit<32>, bit<8>>(256) pkt_count1;
 	RegisterAction<bit<32>, bit<8>, bit<32>>(pkt_count1)
 	store_pkt_count1 = { 
-		void apply(inout bit<32> register_data){
+		void apply(inout bit<32> register_data, out bit<32> result){
 			register_data = register_data + 1;
+			result = register_data;
 		}
 	};
 
@@ -203,12 +219,16 @@ control SwitchEgressControl(
 	action get_curr_time(){
 		eg_meta.curr_time = eg_intr_md_from_prsr.global_tstamp[31:0];
 	}
-
+	action add_qdepth_info(){
+		hdr.innetworkcc_info.qdepth = (bit<32>)eg_intr_md.deq_qdepth;
+	}
 	apply{
 		// fill eg_meta.curr_time. Used by tbl prepare_tcp_meta_info
 		// and calculate_rtt control
 		get_curr_time(); 
-		
+		if(hdr.innetworkcc_info.isValid()){
+			add_qdepth_info();
+		}
 		if(eg_meta.eg_mirror1.isValid()){ // mirrored pkt
 			// Copy the eg_global_ts as src Eth address
 			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.timestamp1;
@@ -224,14 +244,19 @@ control SwitchEgressControl(
 
 			v = get_working_copy.execute(0);
 			if(v == 0){
-				store_sum_eg_deq_qdepth0.execute(eg_intr_md.egress_port[7:0]);
-				store_pkt_count0.execute(eg_intr_md.egress_port[7:0]);
+				read_sum_qdepth	= store_sum_eg_deq_qdepth0.execute(eg_intr_md.egress_port[7:0]);
+				read_pkt_count = store_pkt_count0.execute(eg_intr_md.egress_port[7:0]);
 			} else {
-				store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
-				store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
+				read_sum_qdepth	= store_sum_eg_deq_qdepth1.execute(eg_intr_md.egress_port[7:0]);
+				read_pkt_count = store_pkt_count1.execute(eg_intr_md.egress_port[7:0]);
 			}
 
-
+			if(hdr.innetworkcc_info.isValid()){
+				hdr.innetworkcc_info.qdepth_sum = read_sum_qdepth;
+				hdr.innetworkcc_info.pkt_count = read_pkt_count; 
+				// 3 bits of res, 1 bit of nonce. To match Pcap++ hdr def
+				hdr.tcp.res = 0b0010; // Only mark res
+			}
 
 			if(eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN || eg_meta.tcp_pkt_type == TCP_PKT_TYPE_SYN_ACK){ // either SYN or SYN-ACK
 				/* Set timestamp to report to CP and mirror the packet */
