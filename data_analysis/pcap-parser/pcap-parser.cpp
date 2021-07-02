@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
     }
 
     std::ofstream res_csv_file(outputFile.c_str());
-    std::string rowEntry = "frame.num, frame.time, frame.time_rel, frame.len, ip.src, ip.dst, tcp.seq, tcp.ack, tcp.srcPort, tcp.dstPort, incc.algo_rwnd, incc.rtt_mul, incc.qdepth_sum, incc.pkt_count, incc.qdepth, incc.final_rwnd, incc.ws";
+    std::string rowEntry = "frame.num,frame.time,frame.time_rel,frame.len,ip.src,ip.dst,tcp.seq,tcp.ack,tcp.srcPort,tcp.dstPort,incc.algo_rwnd,incc.rtt_mul,incc.qdepth_sum,incc.pkt_count,incc.qdepth,incc.final_rwnd,incc.ws";
     res_csv_file << rowEntry.c_str() << "\n";
 
     int packetCount = 0;
@@ -88,10 +88,10 @@ int main(int argc, char* argv[])
         double timeRel = timestamp - initialTimestamp;
 
         //printf("framelen = %d\ntimestamp = %lf\ntime_rel = %lf\n",frameLen, timestamp, timeRel);
-        rowEntry = rowEntry + std::to_string(packetCount) + ", ";
-        rowEntry = rowEntry + std::to_string(timestamp) + ", ";
-        rowEntry = rowEntry + std::to_string(timeRel) + ", ";
-        rowEntry = rowEntry + std::to_string(frameLen) + ", ";
+        rowEntry = rowEntry + std::to_string(packetCount) + ",";
+        rowEntry = rowEntry + std::to_string(timestamp) + ",";
+        rowEntry = rowEntry + std::to_string(timeRel) + ",";
+        rowEntry = rowEntry + std::to_string(frameLen) + ",";
 
         pcpp::Packet parsedPacket(&rawPacket);
         pcpp::TcpLayer* tcpLayer = parsedPacket.getLayerOfType<pcpp::TcpLayer>();
@@ -111,11 +111,11 @@ int main(int argc, char* argv[])
             //uint16_t len = ntohs(tcpHeader->dataOffset);
 
             // printf("srcPort = %d\ndstPort = %d\nseqNumber = %u\nackNumber = %u\n",srcPort, dstPort, seqNumber, ackNumber);
-            rowEntry = rowEntry + srcIP.toString().c_str() + ", ";
-            rowEntry = rowEntry + dstIP.toString().c_str() + ", ";
-            rowEntry = rowEntry + std::to_string(seqNumber) + ", ";
-            rowEntry = rowEntry + std::to_string(ackNumber) + ", ";
-            rowEntry = rowEntry + std::to_string(srcPort) + ", ";
+            rowEntry = rowEntry + srcIP.toString().c_str() + ",";
+            rowEntry = rowEntry + dstIP.toString().c_str() + ",";
+            rowEntry = rowEntry + std::to_string(seqNumber) + ",";
+            rowEntry = rowEntry + std::to_string(ackNumber) + ",";
+            rowEntry = rowEntry + std::to_string(srcPort) + ",";
             rowEntry = rowEntry + std::to_string(dstPort);
         }
         if(parsedPacket.isPacketOfType(pcpp::InnetworkCCInfo)){
@@ -129,13 +129,13 @@ int main(int argc, char* argv[])
             uint16_t ws = innetworkccInfoLayer->getWs();
 
             // printf("algo_rwnd: %d\nrtt_mul: %d\nqdepth_sum: %d\npkt_count: %d\nqdepth: %d\nfinal_rwnd: %d\nws: %d\n\n", algo_rwnd, rtt_mul, qdepth_sum, pkt_count, qdepth, final_rwnd, ws);
-            rowEntry = rowEntry + ", ";
-            rowEntry = rowEntry + std::to_string(algo_rwnd) + ", ";
-            rowEntry = rowEntry + std::to_string(rtt_mul) + ", ";
-            rowEntry = rowEntry + std::to_string(qdepth_sum) + ", ";
-            rowEntry = rowEntry + std::to_string(pkt_count) + ", ";
-            rowEntry = rowEntry + std::to_string(qdepth) + ", ";
-            rowEntry = rowEntry + std::to_string(final_rwnd) + ", ";
+            rowEntry = rowEntry + ",";
+            rowEntry = rowEntry + std::to_string(algo_rwnd) + ",";
+            rowEntry = rowEntry + std::to_string(rtt_mul) + ",";
+            rowEntry = rowEntry + std::to_string(qdepth_sum) + ",";
+            rowEntry = rowEntry + std::to_string(pkt_count) + ",";
+            rowEntry = rowEntry + std::to_string(qdepth) + ",";
+            rowEntry = rowEntry + std::to_string(final_rwnd) + ",";
             rowEntry = rowEntry + std::to_string(ws) + "\n";        
         } else {
             rowEntry = rowEntry + "\n";
