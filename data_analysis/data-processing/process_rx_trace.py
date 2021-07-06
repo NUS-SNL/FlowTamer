@@ -47,6 +47,78 @@ class PerFlowThroughput:
             count += 1
         return sum / count
 
+class PerFlowRwndTracker:
+    def __init__(self, src_port, ws, output_dir, time, final_rwnd):
+        self.src_port = src_port
+        self.ws = ws
+        self.prev_rwnd = final_rwnd * pow(2, self.ws)
+        self.prev_rwnd_time = time
+        filename = output_dir + "/flow_rwnd_{}.dat".format(src_port)
+        self.outfile = open(filename, "w")
+        self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+        
+    def __del__(self):
+        # print out the latest seen rwnd (ending)
+        self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+        self.outfile.close()
+        
+    def track(self, time, final_rwnd):
+        if(self.prev_rwnd == final_rwnd): # no change. Update time
+            self.prev_rwnd_time = time
+        else: # rwnd has changed
+            # write the latest timestamped prev_rwnd
+            self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+            # update prev_rwnd
+            self.prev_rwnd = final_rwnd * pow(2, self.ws)
+            self.prev_rwnd_time = time
+            # write it out as well
+            self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+
+class AlgoRwndTracker:
+    def __init__(self, time, algo_rwnd, output_dir):
+        self.prev_algo_rwnd = algo_rwnd
+        self.prev_algo_rwnd_time = time
+        filename = output_dir + "/algo_rwnd.dat"
+        self.outfile = open(filename, "w")
+        self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+        
+    def __del__(self):
+        # print out the latest seen rwnd (ending)
+        self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+        self.outfile.close()
+    
+    def track(self, time, algo_rwnd):
+        if(self.prev_algo_rwnd == algo_rwnd): # no change. Update time
+            self.prev_algo_rwnd_time = time
+        else: # rwnd has changed
+            # write the latest timestamped prev_rwnd
+            self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+            # update prev_rwnd
+            self.prev_algo_rwnd = algo_rwnd
+            self.prev_algo_rwnd_time = time
+            # write it out as well
+            self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+
+class AlgoQdepthTracker:
+    def __init__(self, output_dir):
+        self.prev_qdepth_sum = 0
+        self.prev_pkt_count = 0
+        self.prev_time = 0
+        filename = output_dir + "/algo_qdepth.dat"
+        self.outfile = open(filename, "w")
+
+    def __del__(self):
+        self.outfile.close()
+
+    def track(self, time, qdepth_sum, pkt_count):
+        if(pkt_count == 1): # working copy has changed
+            avg_qdepth = float(self.prev_qdepth_sum * 80) / self.prev_pkt_count
+            self.outfile.write("{} {}\n".format(self.prev_time, round(avg_qdepth)))
+        
+        self.prev_time = time
+        self.prev_qdepth_sum = qdepth_sum
+        self.prev_pkt_count = pkt_count
+        
 
 def main():
     if len(sys.argv) != 2:
@@ -62,9 +134,12 @@ def main():
     csv_reader = csv.reader(csv_file)
     header = next(csv_reader)
 
-    flows = set()
     flow_throughputs = {}
+    flow_rwnds = {}
 
+    algo_rwnd_tracker = None
+    algo_qdepth_tracker = AlgoQdepthTracker(outdir)
+    
     pkt_count = 0
     for row in csv_reader:
         pkt_count += 1
@@ -78,8 +153,8 @@ def main():
             if dst_ip != DST_IP: # consider one direction only
                 continue
 
-            if src_port not in flows:
-                flows.add(src_port)
+            # Throughput processing 
+            if src_port not in flow_throughputs:
                 curr_flow_throughput = PerFlowThroughput(src_port, 'cubic', outdir)
                 flow_throughputs[src_port] = curr_flow_throughput
             else:
@@ -98,12 +173,27 @@ def main():
                 final_rwnd = int(row[15])
                 ws = int(row[16])
 
-                # TODO process the inNetworkCC info
+                # per-flow rwnd processing
+                if src_port not in flow_rwnds:
+                    curr_flow_rwnd_tracker = PerFlowRwndTracker(src_port, ws, outdir, rel_time, final_rwnd)
+                    flow_rwnds[src_port] = curr_flow_rwnd_tracker
+                else:
+                    curr_flow_rwnd_tracker = flow_rwnds[src_port]
+                curr_flow_rwnd_tracker.track(rel_time, final_rwnd)
+
+                # algo rwnd processing
+                if algo_rwnd_tracker == None:
+                    algo_rwnd_tracker = AlgoRwndTracker(rel_time, algo_rwnd, outdir)
+                else:
+                    algo_rwnd_tracker.track(rel_time, algo_rwnd)
+
+                # algo qdepth processing
+                algo_qdepth_tracker.track(rel_time, qdepth_sum, qdepth_pkt_count)
 
         
     
     print("Processed {} packets".format(pkt_count))
-    print("Flow set is:", flows)
+    
 """     for flow in flows:
         flow_throughput = flow_throughputs[flow]
         flow_th_file = open("flow_th_{}.dat".format(flow), "w")
