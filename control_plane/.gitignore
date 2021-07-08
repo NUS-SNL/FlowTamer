@@ -7,3 +7,4 @@ bf_drivers.log*
 inNetworkCC
 inNetworkCC-debug
 build/*
+*.fuse*
