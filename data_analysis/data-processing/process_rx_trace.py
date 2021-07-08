@@ -3,7 +3,8 @@ import csv
 import sys
 import os
 
-WINDOW_TIME_LENGTH = 0.001
+THROUGHPUT_WINDOW_TIME_LENGTH = 0.001
+QDEPTH_WINDOW_TIME_LENGTH = 0.005
 DST_IP = "10.1.1.2"
 
 class PerFlowThroughput:
@@ -27,7 +28,7 @@ class PerFlowThroughput:
         end_time = time # self.moving_window[-1][0]
         curr_window_len = end_time - self.start_time
         
-        if(curr_window_len > WINDOW_TIME_LENGTH): 
+        if(curr_window_len > THROUGHPUT_WINDOW_TIME_LENGTH): 
             # calculate rate for this window
             rate = self.window_sum / curr_window_len
             rate = (rate * 8 / 1000000) # convert to Mbps
@@ -46,6 +47,44 @@ class PerFlowThroughput:
             sum += data_point[1]
             count += 1
         return sum / count
+
+class QdepthMovingWindow:
+    def __init__(self, output_dir):
+        self.moving_window = []  # (time, qdepth)
+        self.window_sum = 0
+        self.window_num_pkts = 0
+        self.start_time = 0
+        self.is_first_pkt = True
+        filename = output_dir + "/qdepth.dat"
+        self.outfile = open(filename, "w")
+
+    def __del__(self):
+        self.outfile.close()
+
+    def add_packet(self, time, qdepth):
+        self.moving_window.append((time, qdepth))
+        self.window_sum += qdepth
+        self.window_num_pkts += 1
+        end_time = time # self.moving_window[-1][0]
+
+        if self.is_first_pkt == True:
+            self.start_time = time
+            self.is_first_pkt = False
+            return
+
+        curr_window_len = end_time - self.start_time
+        if(curr_window_len > QDEPTH_WINDOW_TIME_LENGTH): 
+            # calculate average qdepth for this window
+            avg_qdepth = self.window_sum / self.window_num_pkts
+            avg_qdepth_bytes = avg_qdepth * 80  # convert cells to bytes
+            self.outfile.write("{} {}\n".format(end_time, round(avg_qdepth_bytes)))
+
+            # move the window forward
+            removed_pkt = self.moving_window.pop(0)
+            self.start_time = self.moving_window[0][0]
+            self.window_sum -= removed_pkt[1]
+            self.window_num_pkts -= 1
+        
 
 class PerFlowRwndTracker:
     def __init__(self, src_port, ws, output_dir, time, final_rwnd):
@@ -139,6 +178,7 @@ def main():
 
     algo_rwnd_tracker = None
     algo_qdepth_tracker = AlgoQdepthTracker(outdir)
+    qdepth_moving_window = QdepthMovingWindow(outdir)
     
     pkt_count = 0
     for row in csv_reader:
@@ -189,8 +229,9 @@ def main():
 
                 # algo qdepth processing
                 algo_qdepth_tracker.track(rel_time, qdepth_sum, qdepth_pkt_count)
-
-        
+                
+                # qdepth moving window processing
+                qdepth_moving_window.add_packet(rel_time, qdepth)
     
     print("Processed {} packets".format(pkt_count))
     
