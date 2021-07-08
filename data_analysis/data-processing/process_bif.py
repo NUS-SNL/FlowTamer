@@ -18,19 +18,22 @@ class BytesInFlightTracker:
         self.outfile.close()
 
     def update_tx_bytes(self, time, frame_len, seq_no):
-        if frame_len <= 52:
-            payload = 0
+        if frame_len <= 52:  # Packet without payload
+            new_tx_bytes = seq_no
         else:
             payload = frame_len - 40 # assuming sender-side IP trace
-        new_tx_bytes = seq_no + payload -1
+            new_tx_bytes = seq_no + payload -1
         if new_tx_bytes > self.tx_bytes: # not a ReTx pkt
             self.tx_bytes = new_tx_bytes
             bif = self.tx_bytes - self.acked_bytes
             # self.outfile.write("{} {}\n".format(time, bif))
 
     def update_acked_bytes(self, time, ack_no):
+        # TODO: check for dup ack_no. Should be SACK. Use right edge instead
         self.acked_bytes = ack_no - 1
         bif = self.tx_bytes - self.acked_bytes
+        if bif == -1: # handling last ACK
+            bif = 0
         self.outfile.write("{} {}\n".format(time, bif))
     
 
@@ -57,7 +60,7 @@ def main():
         pkt_count += 1
         row_len = len(row)
         if(row_len >= 10): # valid TCP pkt
-            time = float(row[2])
+            time = float(row[1])
             pktlen = int(row[3])
             src_ip = row[4]
             dst_ip = row[5]

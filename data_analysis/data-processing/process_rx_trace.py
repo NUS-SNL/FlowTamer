@@ -3,18 +3,18 @@ import csv
 import sys
 import os
 
-THROUGHPUT_WINDOW_TIME_LENGTH = 0.001
+THROUGHPUT_WINDOW_TIME_LENGTH = 0.005
 QDEPTH_WINDOW_TIME_LENGTH = 0.005
 DST_IP = "10.1.1.2"
 
 class PerFlowThroughput:
-    def __init__(self, src_port, cc_name, output_dir):
+    def __init__(self, src_port, start_time, cc_name, output_dir):
         self.src_port = src_port
         self.cc_name = cc_name
         self.moving_window = []  # (time, pkt_size)
         self.rate_timeseries = [] # (time, avg rate)
         self.window_sum = 0
-        self.start_time = 0
+        self.start_time = start_time
         filename = output_dir + "/flow_th_{}.dat".format(src_port)
         self.outfile = open(filename, "w")
     
@@ -94,7 +94,7 @@ class PerFlowRwndTracker:
         self.prev_rwnd_time = time
         filename = output_dir + "/flow_rwnd_{}.dat".format(src_port)
         self.outfile = open(filename, "w")
-        self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+        self.outfile.write("{} {}\n".format(self.prev_rwnd_time, self.prev_rwnd))
         
     def __del__(self):
         # print out the latest seen rwnd (ending)
@@ -119,7 +119,7 @@ class AlgoRwndTracker:
         self.prev_algo_rwnd_time = time
         filename = output_dir + "/algo_rwnd.dat"
         self.outfile = open(filename, "w")
-        self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+        self.outfile.write("{} {}\n".format(self.prev_algo_rwnd_time, self.prev_algo_rwnd))
         
     def __del__(self):
         # print out the latest seen rwnd (ending)
@@ -185,7 +185,7 @@ def main():
         pkt_count += 1
         row_len = len(row)
         if(row_len >= 10): # valid TCP pkt
-            rel_time = float(row[2])
+            time = float(row[1])
             pktlen = int(row[3])
             dst_ip = row[5]
             src_port = int(row[8])
@@ -195,12 +195,12 @@ def main():
 
             # Throughput processing 
             if src_port not in flow_throughputs:
-                curr_flow_throughput = PerFlowThroughput(src_port, 'cubic', outdir)
+                curr_flow_throughput = PerFlowThroughput(src_port, time, 'cubic', outdir)
                 flow_throughputs[src_port] = curr_flow_throughput
             else:
                 curr_flow_throughput = flow_throughputs[src_port]
 
-            curr_flow_throughput.add_packet(rel_time, pktlen)
+            curr_flow_throughput.add_packet(time, pktlen)
 
 
             if(row_len == 17):
@@ -215,37 +215,25 @@ def main():
 
                 # per-flow rwnd processing
                 if src_port not in flow_rwnds:
-                    curr_flow_rwnd_tracker = PerFlowRwndTracker(src_port, ws, outdir, rel_time, final_rwnd)
+                    curr_flow_rwnd_tracker = PerFlowRwndTracker(src_port, ws, outdir, time, final_rwnd)
                     flow_rwnds[src_port] = curr_flow_rwnd_tracker
                 else:
                     curr_flow_rwnd_tracker = flow_rwnds[src_port]
-                curr_flow_rwnd_tracker.track(rel_time, final_rwnd)
+                curr_flow_rwnd_tracker.track(time, final_rwnd)
 
                 # algo rwnd processing
                 if algo_rwnd_tracker == None:
-                    algo_rwnd_tracker = AlgoRwndTracker(rel_time, algo_rwnd, outdir)
+                    algo_rwnd_tracker = AlgoRwndTracker(time, algo_rwnd, outdir)
                 else:
-                    algo_rwnd_tracker.track(rel_time, algo_rwnd)
+                    algo_rwnd_tracker.track(time, algo_rwnd)
 
                 # algo qdepth processing
-                algo_qdepth_tracker.track(rel_time, qdepth_sum, qdepth_pkt_count)
+                algo_qdepth_tracker.track(time, qdepth_sum, qdepth_pkt_count)
                 
                 # qdepth moving window processing
-                qdepth_moving_window.add_packet(rel_time, qdepth)
+                qdepth_moving_window.add_packet(time, qdepth)
     
     print("Processed {} packets".format(pkt_count))
     
-"""     for flow in flows:
-        flow_throughput = flow_throughputs[flow]
-        flow_th_file = open("flow_th_{}.dat".format(flow), "w")
-        print("Flow: {}, Avg Throughput: {}".format(flow, flow_throughput.get_overall_average()))
-        for data_point in flow_throughput.rate_timeseries:
-            flow_th_file.write("{} {}\n".format(data_point[0], data_point[1]))
-        flow_th_file.close() """
-
-
-
-
-
 if __name__ == "__main__":
     main()
