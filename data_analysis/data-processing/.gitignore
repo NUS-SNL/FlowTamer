@@ -1,4 +1,6 @@
 *.pcap
 *.csv*
 *.dat*
+*.pdf
+*.gp
 ayush-scripts/*
