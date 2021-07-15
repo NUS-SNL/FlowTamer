@@ -98,7 +98,7 @@ class PerFlowRwndTracker:
         
     def __del__(self):
         # print out the latest seen rwnd (ending)
-        self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+        self.outfile.write("{} {}\n".format(self.prev_rwnd_time, self.prev_rwnd))
         self.outfile.close()
         
     def track(self, time, final_rwnd):
@@ -106,12 +106,12 @@ class PerFlowRwndTracker:
             self.prev_rwnd_time = time
         else: # rwnd has changed
             # write the latest timestamped prev_rwnd
-            self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+            self.outfile.write("{} {}\n".format(self.prev_rwnd_time, self.prev_rwnd))
             # update prev_rwnd
             self.prev_rwnd = final_rwnd * pow(2, self.ws)
             self.prev_rwnd_time = time
             # write it out as well
-            self.outfile.write("{} {}\n".format(self.prev_rwnd, self.prev_rwnd_time))
+            self.outfile.write("{} {}\n".format(self.prev_rwnd_time, self.prev_rwnd))
 
 class AlgoRwndTracker:
     def __init__(self, time, algo_rwnd, output_dir):
@@ -123,7 +123,7 @@ class AlgoRwndTracker:
         
     def __del__(self):
         # print out the latest seen rwnd (ending)
-        self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+        self.outfile.write("{} {}\n".format(self.prev_algo_rwnd_time, self.prev_algo_rwnd))
         self.outfile.close()
     
     def track(self, time, algo_rwnd):
@@ -131,12 +131,12 @@ class AlgoRwndTracker:
             self.prev_algo_rwnd_time = time
         else: # rwnd has changed
             # write the latest timestamped prev_rwnd
-            self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+            self.outfile.write("{} {}\n".format(self.prev_algo_rwnd_time, self.prev_algo_rwnd))
             # update prev_rwnd
             self.prev_algo_rwnd = algo_rwnd
             self.prev_algo_rwnd_time = time
             # write it out as well
-            self.outfile.write("{} {}\n".format(self.prev_algo_rwnd, self.prev_algo_rwnd_time))
+            self.outfile.write("{} {}\n".format(self.prev_algo_rwnd_time, self.prev_algo_rwnd))
 
 class AlgoQdepthTracker:
     def __init__(self, output_dir):
