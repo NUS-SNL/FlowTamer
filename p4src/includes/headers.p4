@@ -110,7 +110,7 @@ struct port_metadata_t {
 */
 
 
-header innetworkcc_info_h {// 20 bytes
+header innetworkcc_info_h {// 24 bytes
     bit<32> algo_rwnd;
     bit<32> rtt_mul;
     bit<32> qdepth_sum;
@@ -120,9 +120,15 @@ header innetworkcc_info_h {// 20 bytes
     bit<16>  ws;
 }
 
+header algorwnd_update_h {
+    bit<32> algo_rwnd;
+    bit<8>  port;
+}
+
 struct header_t {
     bridged_meta_h bridged_meta;
 	ethernet_h ethernet;
+    algorwnd_update_h algorwnd_update;
 	ipv4_h ipv4;
     arp_h arp;
 	tcp_h tcp;

@@ -7,7 +7,8 @@
 
 enum bit<16> ether_type_t {
     IPV4 = 0x0800,
-    ARP  = 0x0806
+    ARP  = 0x0806,
+    PKTGEN = 0xBFBF
 }
 
 enum bit<8> ipv4_proto_t {
@@ -57,9 +58,15 @@ parser SwitchIngressParser(
 		transition select(hdr.ethernet.ether_type){
 			(bit<16>) ether_type_t.IPV4: parse_ipv4;
 			(bit<16>) ether_type_t.ARP: parse_arp;
+            (bit<16>) ether_type_t.PKTGEN : parse_algorwnd_update;
 			default: accept;
 		}
 	}
+
+    state parse_algorwnd_update {
+        pkt.extract(hdr.algorwnd_update);
+        transition accept;
+    }
 
 	state parse_ipv4 {
 		pkt.extract(hdr.ipv4);
@@ -235,9 +242,15 @@ parser SwitchEgressParser(
 		transition select(hdr.ethernet.ether_type){
 			(bit<16>) ether_type_t.IPV4: parse_ipv4;
 			(bit<16>) ether_type_t.ARP: parse_arp;
+            (bit<16>) ether_type_t.PKTGEN : parse_algorwnd_update;
 			default: accept;
 		}
 	}
+
+    state parse_algorwnd_update {
+        pkt.extract(hdr.algorwnd_update);
+        transition accept;
+    }
 
 	state parse_ipv4 {
 		pkt.extract(hdr.ipv4);

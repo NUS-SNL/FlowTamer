@@ -17,6 +17,7 @@ const int MCAST_GRP_ID = 1;
 
 const PortId_t CPU_ETHERNET_PORT_1 = 64;
 const PortId_t CPU_ETHERNET_PORT_2 = 66;
+const PortId_t RECIRC_PORT_PIPE_1  = 196;
 
 
 const bit<8> TCP_FLAG_FIN = 1;
@@ -69,19 +70,36 @@ control SwitchIngress(
 		// ig_meta.base_rwnd = get_new_rwnd.execute(ig_intr_md.ingress_port[7:0]);
 		ig_meta.base_rwnd = get_new_rwnd.execute(INGRESS_PORT);
 	}
+
+	action route_to_recirc_port(){
+		ig_intr_md_for_tm.ucast_egress_port = RECIRC_PORT_PIPE_1;
+	}
+
+	action add_algo_rwnd(){
+		hdr.algorwnd_update.port      = INGRESS_PORT; // fixed for now. 
+		hdr.algorwnd_update.algo_rwnd = ig_meta.base_rwnd;
+	}
 	
 	apply {
+		// ROUTING: based on the pkt
 		if(hdr.ethernet.isValid()){
+
+			read_new_rwnd_from_reg(); // returns the value from register in ig_meta.base_rwnd
+
 			if(hdr.ethernet.ether_type == (bit<16>) ether_type_t.ARP){
 				// do the broadcast to all involved ports
 				ig_intr_md_for_tm.mcast_grp_a = MCAST_GRP_ID;
 				ig_intr_md_for_tm.rid = 0;
 			}
+			else if (hdr.ethernet.ether_type == (bit<16>) ether_type_t.PKTGEN){
+				route_to_recirc_port();
+				add_algo_rwnd();
+			}
 			else { l2_forward.apply(); }
 		}
+
 		if(hdr.tcp.isValid() && (hdr.tcp.flags & 0b00000010) !=1){ // && ig_meta.port_meta.apply_algo ==
 			// TCP pkts except SYN and SYN-ACK
-			read_new_rwnd_from_reg(); // returns the value from register in ig_meta.base_rwnd
 			
 			if(ig_meta.base_rwnd != 0){ 
 				// if we see zero rwnd then we don't do any rwnd adjustment + setting in the packet
@@ -160,6 +178,27 @@ control SwitchEgressControl(
 		}
 	};
 
+	Register<bit<32>, bit<8>>(256) algo_rwnd;
+	RegisterAction<bit<32>, bit<8>, bit<32>>(algo_rwnd)
+	set_algo_rwnd = {
+		void apply(inout bit<32> reg_val, out bit<32> rv){
+			reg_val = hdr.algorwnd_update.algo_rwnd;
+		}
+	};
+	RegisterAction<bit<32>, bit<8>, bit<32>>(algo_rwnd)
+	get_algo_rwnd = {
+		void apply(inout bit<32> reg_val, out bit<32> rv){
+			rv = reg_val;
+		}
+	};
+
+	action store_algo_rwnd(){
+		set_algo_rwnd.execute(hdr.algorwnd_update.port);
+	}
+
+	action add_latest_algo_rwnd(){
+		hdr.innetworkcc_info.algo_rwnd = get_algo_rwnd.execute(INGRESS_PORT); // hard-coded for now
+	}
 
 	action set_tcp_pkt_type(tcp_pkt_type_t pkt_type){
 		eg_meta.tcp_pkt_type = pkt_type;
@@ -228,7 +267,12 @@ control SwitchEgressControl(
 		get_curr_time(); 
 		if(hdr.innetworkcc_info.isValid()){
 			add_qdepth_info();
+			add_latest_algo_rwnd();
 		}
+		else if (hdr.algorwnd_update.isValid()){
+			store_algo_rwnd();
+		}
+		
 		if(eg_meta.eg_mirror1.isValid()){ // mirrored pkt
 			// Copy the eg_global_ts as src Eth address
 			 hdr.ethernet.src_addr = eg_meta.eg_mirror1.timestamp1;

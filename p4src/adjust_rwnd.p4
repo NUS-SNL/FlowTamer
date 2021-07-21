@@ -88,7 +88,7 @@ control adjustRWND(inout header_t hdr, inout ingress_metadata_t ig_meta){
             set_rtt_scaled_rwnd;
         }
 
-        size = 65540;
+        size = 70000; //65540;
     }
 
     action rshift0(){ /* ig_meta.rtt_scaled_rwnd = ig_meta.rtt_scaled_rwnd >> 0;*/ } // nop
