@@ -10,10 +10,6 @@ BIF_WINDOW_TIME_LENGTH = 0.005 # 5ms
 class BytesInFlightTracker:
     def __init__(self, src_port, seq_no, output_dir):
         self.port = src_port
-        self.moving_window = []  # (time, bif)
-        self.window_sum = 0
-        self.window_count = 0
-        self.start_time = 0  # just declaration
         self.is_first_pkt = True
         self.tx_bytes = 0
         self.acked_bytes = seq_no
@@ -23,29 +19,8 @@ class BytesInFlightTracker:
     def __del__(self):
         self.outfile.close()
 
-    def add_to_moving_window(self, time, bif):
-        self.moving_window.append((time, bif))
-        self.window_sum += bif
-        self.window_count += 1
-        end_time = time # self.moving_window[-1][0]
-
-        if self.is_first_pkt == True:
-            self.start_time = time
-            self.is_first_pkt = False
-            return
-
-        curr_window_len = end_time - self.start_time
-        if(curr_window_len > BIF_WINDOW_TIME_LENGTH): 
-            # calculate average qdepth for this window
-            avg_bif = self.window_sum / float(self.window_count)
-            self.outfile.write("{} {}\n".format(end_time, round(avg_bif)))
-
-            # move the window forward
-            removed_pkt = self.moving_window.pop(0)
-            self.start_time = self.moving_window[0][0]
-            self.window_sum -= removed_pkt[1]
-            self.window_count -= 1
-
+    def add_to_output_file(self, time, bif):
+        self.outfile.write("{} {}\n".format(time, bif))
 
     def update_tx_bytes(self, time, frame_len, seq_no):
         if frame_len == 52:  # SYN
@@ -59,7 +34,7 @@ class BytesInFlightTracker:
             self.tx_bytes = new_tx_bytes
             bif = self.tx_bytes - self.acked_bytes
             # self.outfile.write("{} {}\n".format(time, bif))
-            self.add_to_moving_window(time, bif)
+            self.add_to_output_file(time, bif)
 
 
     def update_acked_bytes(self, time, ack_no):
@@ -69,7 +44,7 @@ class BytesInFlightTracker:
         if bif == -1: # handling last ACK
             bif = 0
         # self.outfile.write("{} {}\n".format(time, bif))
-        self.add_to_moving_window(time, bif)
+        self.add_to_output_file(time, bif)
     
 
 
