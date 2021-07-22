@@ -62,29 +62,8 @@ class QdepthMovingWindow:
         self.outfile.close()
 
     def add_packet(self, time, qdepth):
-        self.moving_window.append((time, qdepth))
-        self.window_sum += qdepth
-        self.window_num_pkts += 1
-        end_time = time # self.moving_window[-1][0]
-
-        if self.is_first_pkt == True:
-            self.start_time = time
-            self.is_first_pkt = False
-            return
-
-        curr_window_len = end_time - self.start_time
-        if(curr_window_len > QDEPTH_WINDOW_TIME_LENGTH): 
-            # calculate average qdepth for this window
-            avg_qdepth = self.window_sum / self.window_num_pkts
-            avg_qdepth_bytes = avg_qdepth * 80  # convert cells to bytes
-            self.outfile.write("{} {}\n".format(end_time, round(avg_qdepth_bytes)))
-
-            # move the window forward
-            removed_pkt = self.moving_window.pop(0)
-            self.start_time = self.moving_window[0][0]
-            self.window_sum -= removed_pkt[1]
-            self.window_num_pkts -= 1
-        
+        self.outfile.write("{} {}\n".format(time, qdepth * 80))
+        return
 
 class PerFlowRwndTracker:
     def __init__(self, src_port, ws, output_dir, time, final_rwnd):
