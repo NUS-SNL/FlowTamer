@@ -8,37 +8,51 @@ QDEPTH_WINDOW_TIME_LENGTH = 0.005
 DST_IP = "10.1.1.2"
 
 class PerFlowThroughput:
-    def __init__(self, src_port, start_time, cc_name, output_dir):
+    def __init__(self, src_port, cc_name, output_dir):
         self.src_port = src_port
         self.cc_name = cc_name
         self.moving_window = []  # (time, pkt_size)
         self.rate_timeseries = [] # (time, avg rate)
         self.window_sum = 0
-        self.start_time = start_time
+        self.start_time = 0
+        self.end_time = 0
         filename = output_dir + "/flow_th_{}.dat".format(src_port)
         self.outfile = open(filename, "w")
     
     def __del__(self):
+        if self.window_sum != 0: # there are pkts in last window that is not flushed
+            rate = self.window_sum / THROUGHPUT_WINDOW_TIME_LENGTH
+            rate = (rate * 8 / 1000000) # convert to Mbps
+            self.outfile.write("{} {:.6f}\n".format(self.end_time, round(rate, 6)))
         self.outfile.close()
 
 
     def add_packet(self, time, pkt_size):
-        self.moving_window.append((time, pkt_size))
-        self.window_sum += pkt_size
-        end_time = time # self.moving_window[-1][0]
-        curr_window_len = end_time - self.start_time
-        
-        if(curr_window_len > THROUGHPUT_WINDOW_TIME_LENGTH): 
-            # calculate rate for this window
-            rate = self.window_sum / curr_window_len
-            rate = (rate * 8 / 1000000) # convert to Mbps
-            self.outfile.write("{} {:.6f}\n".format(end_time, round(rate, 6)))
-            # self.rate_timeseries.append((end_time, round(rate, 6)))
+        if self.start_time == 0: # first pkt to be added
+            self.start_time = time
+            self.end_time = self.start_time + THROUGHPUT_WINDOW_TIME_LENGTH
+            self.window_sum += pkt_size
+            self.moving_window.append((time, pkt_size))
+        else: # subsequent packets
+            if time >= self.start_time and time < self.end_time: # pkt belongs to the curr window    
+                self.window_sum += pkt_size
+                self.moving_window.append((time, pkt_size))
+            elif time >= self.end_time: # we hv a pkt for a future window
+                # flush the current window
+                rate = self.window_sum / THROUGHPUT_WINDOW_TIME_LENGTH
+                rate = (rate * 8 / 1000000) # convert to Mbps
+                self.outfile.write("{} {:.6f}\n".format(self.end_time, round(rate, 6)))
 
-            # move the window forward
-            removed_pkt = self.moving_window.pop(0)
-            self.start_time = self.moving_window[0][0]
-            self.window_sum -= removed_pkt[1]
+                # init a new window
+                self.start_time = self.end_time
+                self.end_time = self.start_time + THROUGHPUT_WINDOW_TIME_LENGTH
+                self.window_sum = 0
+                self.moving_window.clear()
+
+                # (Try) Add the curr packet to the new window (recursive call)
+                self.add_packet(time, pkt_size)
+            else: # invalid packet
+                print("Invalid Pkt! Time: {}, Size: {}, win_start: {}, win_end: {}".format(time, pkt_size, self.start_time, self.end_time))
 
     def get_overall_average(self):
         sum = 0
@@ -174,7 +188,7 @@ def main():
 
             # Throughput processing 
             if src_port not in flow_throughputs:
-                curr_flow_throughput = PerFlowThroughput(src_port, time, 'cubic', outdir)
+                curr_flow_throughput = PerFlowThroughput(src_port, 'cubic', outdir)
                 flow_throughputs[src_port] = curr_flow_throughput
             else:
                 curr_flow_throughput = flow_throughputs[src_port]
