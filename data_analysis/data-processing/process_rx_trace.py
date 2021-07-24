@@ -85,7 +85,7 @@ class PerFlowRwndTracker:
         self.ws = ws
         self.prev_rwnd = final_rwnd * pow(2, self.ws)
         self.prev_rwnd_time = time
-        filename = output_dir + "/flow_rwnd_{}.dat".format(src_port)
+        filename = output_dir + "/flow_final_rwnd_{}.dat".format(src_port)
         self.outfile = open(filename, "w")
         self.outfile.write("{} {}\n".format(self.prev_rwnd_time, self.prev_rwnd))
         
@@ -177,7 +177,7 @@ def main():
     for row in csv_reader:
         pkt_count += 1
         row_len = len(row)
-        if(row_len >= 10): # valid TCP pkt
+        if(row_len >= 12): # valid TCP pkt
             time = float(row[1])
             pktlen = int(row[3])
             dst_ip = row[5]
