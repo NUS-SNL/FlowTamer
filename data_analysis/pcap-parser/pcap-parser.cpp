@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
     }
 
     std::ofstream res_csv_file(outputFile.c_str());
-    std::string rowEntry = "frame.num,frame.time,frame.time_rel,frame.len,ip.src,ip.dst,tcp.seq,tcp.ack,tcp.srcPort,tcp.dstPort,tcp.rwnd,incc.algo_rwnd,incc.rtt_mul,incc.qdepth_sum,incc.pkt_count,incc.qdepth,incc.final_rwnd,incc.ws";
+    std::string rowEntry = "frame.num,frame.time,frame.time_rel,frame.len,ip.src,ip.dst,tcp.seq,tcp.ack,tcp.srcPort,tcp.dstPort,tcp.rwnd,tcp.ws,incc.algo_rwnd,incc.rtt_mul,incc.qdepth_sum,incc.pkt_count,incc.qdepth,incc.final_rwnd,incc.ws";
     res_csv_file << rowEntry.c_str() << "\n";
 
     int packetCount = 0;
@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
             pcpp::IPv4Address srcIP = ipLayer->getSrcIPv4Address();
             pcpp::IPv4Address dstIP = ipLayer->getDstIPv4Address();
 
+            pcpp::TcpOption windowScaleOption = tcpLayer->getTcpOption(pcpp::PCPP_TCPOPT_WINDOW);
             // printf("srcIP: %s\ndstIP: %s\n",srcIP.toString().c_str(), dstIP.toString().c_str());
 
             uint16_t srcPort = tcpLayer->getSrcPort();
@@ -118,7 +119,13 @@ int main(int argc, char* argv[])
             rowEntry = rowEntry + std::to_string(ackNumber) + ",";
             rowEntry = rowEntry + std::to_string(srcPort) + ",";
             rowEntry = rowEntry + std::to_string(dstPort) + ",";
-            rowEntry = rowEntry + std::to_string(rwnd);
+            if(windowScaleOption.isNull() == true){
+                rowEntry = rowEntry + std::to_string(rwnd)+ ",-1";
+            }
+            else{
+                rowEntry = rowEntry + std::to_string(rwnd) + ",";
+                rowEntry = rowEntry + std::to_string(*windowScaleOption.getValue());
+            }
         }
         if(parsedPacket.isPacketOfType(pcpp::InnetworkCCInfo)){
             pcpp::InnetworkccInfoLayer *innetworkccInfoLayer = parsedPacket.getLayerOfType<pcpp::InnetworkccInfoLayer>();
