@@ -85,7 +85,7 @@ bf_switchd_context_t* init_switchd(){
 }
 
 /* Our great NOS runtime goes here */
-bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
+bf_status_t app_run(bf_switchd_context_t *switchd_ctx, bool no_algo)
 {
     (void) switchd_ctx;
     bf_status_t status;
@@ -115,7 +115,7 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
 
     std::fstream outfile("result.txt");
 
-    status = inNetworkCCAlgo(outfile, algo_running);
+    status = inNetworkCCAlgo(outfile, algo_running, no_algo);
     CHECK_BF_STATUS(status);
 
     printf("Stopped inNetworkCCAlgo\n");
@@ -126,8 +126,22 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx)
 
 
 int main(int argc, char **argv){
-    /* Not using cmdline params in this minimal boiler plate */
-    (void) argc; (void) argv;
+    
+    bool no_algo = false;
+
+    if(argc > 1){
+        std::vector<std::string> args(argv + 1, argv + argc);
+
+        for(auto i = args.begin(); i != args.end(); i++){
+            if(*i == "-n" || *i == "--no-algo"){
+                no_algo = true;
+            }
+        }
+    }
+
+    if(no_algo == true){
+        printf("WARNING: Running without the algo!!\n");
+    }
 
     signal(SIGINT,interrupt_handler);
 
@@ -144,7 +158,7 @@ int main(int argc, char **argv){
     switchd_ctx = init_switchd();
 
     /* Run the CP app */
-    status = app_run(switchd_ctx);
+    status = app_run(switchd_ctx, no_algo);
 
     // printf("Finished running the CP app\n");
 

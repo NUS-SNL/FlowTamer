@@ -24,34 +24,43 @@ qdepth_t upperQdepthThreshold = 750000;
 qdepth_t currentAvgQdepth;
 
 
-bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running){
+bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, bool no_algo){
     
     bf_status_t status;
 
     Bfruntime& bfrt = Bfruntime::getInstance();
 
-    /* Set initial rwnd and working copy */
-    status = bfrt.set_rwnd(egressPort, currentRwnd); CHECK_BF_STATUS(status);
-    // status = set_working_copy(currentWorkingCopy); CHECK_BF_STATUS(status);
+    if(no_algo){
+        // Set the initial rwnd to zero
+        status = bfrt.set_rwnd(egressPort, 0); CHECK_BF_STATUS(status);
+        printf("Not running any algo...\n");
+    }
+    else{
+        /* Set initial rwnd and working copy */
+        status = bfrt.set_rwnd(egressPort, currentRwnd); CHECK_BF_STATUS(status);
+        // status = set_working_copy(currentWorkingCopy); CHECK_BF_STATUS(status);
+    }
     usleep(roundIntervalInMicroSec);
     
     while(algo_running){
-        status = bfrt.get_queuing_info(egressPort, currentAvgQdepth, currentWorkingCopy);
-        printf("%i\n",currentRwnd);
-        if(currentAvgQdepth > upperQdepthThreshold){ // multiplicative decrement
-            currentRwnd = max_rwnd(minimumRwnd, currentRwnd / rwndDecrement);
-            status = bfrt.set_rwnd(egressPort, currentRwnd);
-            CHECK_BF_STATUS(status);
-        } else if((currentAvgQdepth < lowerQdepthThreshold)){ // additive increase
-            rwnd_t sum = currentRwnd + rwndIncrement;
-            if(sum < currentRwnd){ sum = maximumRwnd;} // to handle wrap around (rarely possible?)
-            currentRwnd = min_rwnd(maximumRwnd, sum);
-            status = bfrt.set_rwnd(egressPort, currentRwnd); // to avoid case where (currentRwnd + rwndIncrement > 65535
-            CHECK_BF_STATUS(status);
-        } else{
+        if(!no_algo){
+            status = bfrt.get_queuing_info(egressPort, currentAvgQdepth, currentWorkingCopy);
+            printf("%i\n",currentRwnd);
+            if(currentAvgQdepth > upperQdepthThreshold){ // multiplicative decrement
+                currentRwnd = max_rwnd(minimumRwnd, currentRwnd / rwndDecrement);
+                status = bfrt.set_rwnd(egressPort, currentRwnd);
+                CHECK_BF_STATUS(status);
+            } else if((currentAvgQdepth < lowerQdepthThreshold)){ // additive increase
+                rwnd_t sum = currentRwnd + rwndIncrement;
+                if(sum < currentRwnd){ sum = maximumRwnd;} // to handle wrap around (rarely possible?)
+                currentRwnd = min_rwnd(maximumRwnd, sum);
+                status = bfrt.set_rwnd(egressPort, currentRwnd); // to avoid case where (currentRwnd + rwndIncrement > 65535
+                CHECK_BF_STATUS(status);
+            } else{
 
+            }
+            outfile << currentRwnd << " " << std::to_string(currentAvgQdepth) << std::endl;
         }
-        outfile << currentRwnd << " " << std::to_string(currentAvgQdepth) << std::endl;
         usleep(roundIntervalInMicroSec);
     }
     outfile.close();
