@@ -196,15 +196,15 @@ def main():
             curr_flow_throughput.add_packet(time, pktlen)
 
 
-            if(row_len == 18):
+            if(row_len == 19):
                 # extract inNetworkCC Info
-                algo_rwnd = int(row[11])
-                rtt_mul = int(row[12])
-                qdepth_sum = int(row[13])
-                qdepth_pkt_count = int(row[14])
-                qdepth = int(row[15])
-                final_rwnd = int(row[16])
-                ws = int(row[17])
+                algo_rwnd = int(row[12])
+                rtt_mul = int(row[13])
+                qdepth_sum = int(row[14])
+                qdepth_pkt_count = int(row[15])
+                qdepth = int(row[16])
+                final_rwnd = int(row[17])
+                ws = int(row[18])
 
                 # per-flow rwnd processing
                 if src_port not in flow_rwnds:
