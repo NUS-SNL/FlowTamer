@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["/home/tofino/jarvis-tofino/harsh-tofino/inNetworkCC/data_analysis/data-processing/expt-data/qdepth_ceiling/cubic_300ms/debug-th_mw/sender.csv"],
+            "args": ["/home/tofino/jarvis-tofino/harsh-tofino/inNetworkCC/data_analysis/data-processing/expt-data/qdepth_ceiling/ayush_testbed/old_rwnd/bbr_100ms/sender.csv"],
             "console": "integratedTerminal"
         }
     ]
