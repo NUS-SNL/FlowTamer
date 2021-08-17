@@ -12,4 +12,7 @@ pcap-parser.o: pcap-parser.cpp
 # Clean Target
 clean:
 	rm pcap-parser.o
+
+cleaner:
+	rm pcap-parser.o
 	rm pcap-parser
