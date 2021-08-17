@@ -75,9 +75,14 @@ class RwndTracker:
             self.outfile.write("{} {}\n".format(self.prev_rwnd_time, self.prev_rwnd))
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: {} <csv file>".format(sys.argv[0]))
+    global RECEIVER_IP
+    
+    if len(sys.argv) < 2:
+        print("Usage: {} <csv file> ['receiver_ip']".format(sys.argv[0]))
         sys.exit(1)
+
+    if len(sys.argv) == 3: # receiver ip is specified
+        RECEIVER_IP = sys.argv[2]
 
     csv_path = os.path.abspath(sys.argv[1])
     outdir = os.path.dirname(csv_path)

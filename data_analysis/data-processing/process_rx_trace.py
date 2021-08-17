@@ -62,11 +62,13 @@ class PerFlowThroughput:
             count += 1
         return sum / count
 
-class QdepthMovingWindow:
+class QdepthTracker:
     def __init__(self, output_dir):
         self.moving_window = []  # (time, qdepth)
         self.window_sum = 0
         self.window_num_pkts = 0
+        self.prev_qdepth = 0
+        self.prev_qdepth_time = 0
         self.start_time = 0
         self.is_first_pkt = True
         filename = output_dir + "/qdepth.dat"
@@ -75,8 +77,23 @@ class QdepthMovingWindow:
     def __del__(self):
         self.outfile.close()
 
-    def add_packet(self, time, qdepth):
-        self.outfile.write("{} {}\n".format(time, qdepth * 80))
+    def track(self, time, qdepth):
+        if (self.is_first_pkt):
+            self.prev_qdepth = qdepth
+            self.prev_qdepth_time = time
+            self.is_first_pkt = False
+            self.outfile.write("{} {}\n".format(self.prev_qdepth_time, self.prev_qdepth * 80))
+        else:
+            if(self.prev_qdepth == qdepth): # no change. Update time
+                self.prev_qdepth_time = time
+            else: # qdepth has changed
+                # write the latest timestamped prev_qdepth
+                self.outfile.write("{} {}\n".format(self.prev_qdepth_time, self.prev_qdepth * 80))
+                # update prev_qdepth
+                self.prev_qdepth = qdepth
+                self.prev_qdepth_time = time
+                # write it out as well
+                self.outfile.write("{} {}\n".format(self.prev_qdepth_time, self.prev_qdepth * 80))
         return
 
 class PerFlowRwndTracker:
@@ -153,9 +170,14 @@ class AlgoQdepthTracker:
         
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: {} <csv file>".format(sys.argv[0]))
+    global DST_IP
+    
+    if len(sys.argv) < 2:
+        print("Usage: {} <csv file> ['receiver_ip']".format(sys.argv[0]))
         sys.exit(1)
+
+    if len(sys.argv) == 3: # receiver ip is specified
+        DST_IP = sys.argv[2]
 
     csv_path = os.path.abspath(sys.argv[1])
     outdir = os.path.dirname(csv_path)
@@ -171,7 +193,7 @@ def main():
 
     algo_rwnd_tracker = None
     algo_qdepth_tracker = AlgoQdepthTracker(outdir)
-    qdepth_moving_window = QdepthMovingWindow(outdir)
+    qdepth_tracker = QdepthTracker(outdir)
     
     pkt_count = 0
     for row in csv_reader:
@@ -224,7 +246,7 @@ def main():
                 algo_qdepth_tracker.track(time, qdepth_sum, qdepth_pkt_count)
                 
                 # qdepth moving window processing
-                qdepth_moving_window.add_packet(time, qdepth)
+                qdepth_tracker.track(time, qdepth)
     
     print("Processed {} packets".format(pkt_count))
     
