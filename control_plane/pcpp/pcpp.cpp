@@ -61,6 +61,18 @@ void start_pcpp_capture()
 		exit(1);
 	}
 
+	pcpp::DpdkDevice::LinkStatus linkStatus;
+	device2->getLinkStatus(linkStatus);
+
+	if (linkStatus.linkUp == true){
+		printf("\n\nLink is UP on the DPDK port!\n");
+	}
+	else{
+		printf("\n\nLink is DOWN on the DPDK port!\n");
+		printf("Please hard reboot the switch from the wall power...\n");
+		exit(1);
+	}
+
 	// Create worker threads
 	std::vector<pcpp::DpdkWorkerThread*> workers;
 	workers.push_back(new ReceiverWorkerThread(device2));
