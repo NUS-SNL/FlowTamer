@@ -13,6 +13,8 @@ Academy course ICA-1132: "Barefoot Runtime Interface & PTF"
 #include <bf_rt/bf_rt_init.hpp>
 #include <bf_rt/bf_rt_session.hpp>
 
+#include "utils/types.hpp"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -85,7 +87,7 @@ bf_switchd_context_t* init_switchd(){
 }
 
 /* Our great NOS runtime goes here */
-bf_status_t app_run(bf_switchd_context_t *switchd_ctx, bool no_algo)
+bf_status_t app_run(bf_switchd_context_t *switchd_ctx, const algo_params_t& algo_params)
 {
     (void) switchd_ctx;
     bf_status_t status;
@@ -116,7 +118,7 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx, bool no_algo)
 
     std::fstream outfile("result.txt");
 
-    status = inNetworkCCAlgo(outfile, algo_running, no_algo);
+    status = inNetworkCCAlgo(outfile, algo_running, algo_params);
     CHECK_BF_STATUS(status);
 
     printf("Stopped inNetworkCCAlgo\n");
@@ -128,19 +130,25 @@ bf_status_t app_run(bf_switchd_context_t *switchd_ctx, bool no_algo)
 
 int main(int argc, char **argv){
     
-    bool no_algo = false;
-
+    algo_params_t algo_params;
+    
     if(argc > 1){
         std::vector<std::string> args(argv + 1, argv + argc);
 
         for(auto i = args.begin(); i != args.end(); i++){
             if(*i == "-n" || *i == "--no-algo"){
-                no_algo = true;
+                algo_params.no_algo = true;
+            }
+            else if (*i == "--thresh-high"){
+                algo_params.thresh_high = atoi((*(++i)).c_str());
+            }
+            else if (*i == "--thresh-low"){
+                algo_params.thresh_low = atoi((*(++i)).c_str());
             }
         }
     }
 
-    if(no_algo == true){
+    if(algo_params.no_algo == true){
         printf("WARNING: Running without the algo!!\n");
     }
 
@@ -159,7 +167,7 @@ int main(int argc, char **argv){
     switchd_ctx = init_switchd();
 
     /* Run the CP app */
-    status = app_run(switchd_ctx, no_algo);
+    status = app_run(switchd_ctx, algo_params);
 
     // printf("Finished running the CP app\n");
 

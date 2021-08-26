@@ -5,9 +5,21 @@
 #include "utils/types.hpp"
 #include <fstream>
 
-bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, bool no_algo);
 
+struct algo_params_t {
+    bool no_algo;
+    qdepth_t thresh_high;
+    qdepth_t thresh_low;
 
+    // default constructor to set the default values
+    algo_params_t():
+    no_algo(false),
+    thresh_high(750000),
+    thresh_low(75000) // 50 packets
+    {}
+};
+
+bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, const algo_params_t& no_algo);
 
 inline rwnd_t min_rwnd(rwnd_t rwnd1, rwnd_t rwnd2){
     if(rwnd1 < rwnd2){

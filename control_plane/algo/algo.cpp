@@ -15,22 +15,23 @@ uint16_t roundIntervalInMicroSec = 20000;
 rwnd_t minimumRwnd = 118;
 rwnd_t maximumRwnd = 1751122; // 50 MB for RTT of 300ms ==> 50/30 = 1.67MB for RTT of 10ms
 rwnd_t currentRwnd = maximumRwnd;
-rwnd_t rwndIncrement = 118;
+rwnd_t rwndIncrement = 1500;
 rwnd_t rwndDecrement = 2;
 
 
-qdepth_t lowerQdepthThreshold = 75000;
-qdepth_t upperQdepthThreshold = 750000;
 qdepth_t currentAvgQdepth;
 
 
-bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, bool no_algo){
+bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, const algo_params_t& algo_params){
     
     bf_status_t status;
 
     Bfruntime& bfrt = Bfruntime::getInstance();
 
-    if(no_algo){
+    qdepth_t lowerQdepthThreshold = algo_params.thresh_low; // 75000;
+    qdepth_t upperQdepthThreshold = algo_params.thresh_high; // 750000;
+
+    if(algo_params.no_algo){
         // Set the initial rwnd to zero
         status = bfrt.set_rwnd(egressPort, 0); CHECK_BF_STATUS(status);
         printf("Not running any algo...\n");
@@ -43,7 +44,7 @@ bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, bool no_a
     usleep(roundIntervalInMicroSec);
     
     while(algo_running){
-        if(!no_algo){
+        if(!algo_params.no_algo){
             status = bfrt.get_queuing_info(egressPort, currentAvgQdepth, currentWorkingCopy);
             printf("%i\n",currentRwnd);
             if(currentAvgQdepth > upperQdepthThreshold){ // multiplicative decrement
