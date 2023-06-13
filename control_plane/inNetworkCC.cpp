@@ -145,6 +145,9 @@ int main(int argc, char **argv){
             else if (*i == "--thresh-low"){
                 algo_params.thresh_low = atoi((*(++i)).c_str());
             }
+            else if (*i == "--round-int"){
+                algo_params.round_interval_ms = atoi((*(++i)).c_str());
+            }
         }
     }
 

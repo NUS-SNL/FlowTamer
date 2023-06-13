@@ -10,12 +10,14 @@ struct algo_params_t {
     bool no_algo;
     qdepth_t thresh_high;
     qdepth_t thresh_low;
+    uint16_t round_interval_ms;
 
     // default constructor to set the default values
     algo_params_t():
     no_algo(false),
     thresh_high(750000),
-    thresh_low(75000) // 50 packets
+    thresh_low(75000), // 50 packets
+    round_interval_ms(20000)
     {}
 };
 

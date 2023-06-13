@@ -10,7 +10,6 @@
 */
 working_copy_t currentWorkingCopy = 0;
 port_t egressPort = 129;
-uint16_t roundIntervalInMicroSec = 20000;
 
 rwnd_t minimumRwnd = 118;
 rwnd_t maximumRwnd = 1751122; // 50 MB for RTT of 300ms ==> 50/30 = 1.67MB for RTT of 10ms
@@ -30,6 +29,9 @@ bf_status_t inNetworkCCAlgo(std::fstream &outfile, bool &algo_running, const alg
 
     qdepth_t lowerQdepthThreshold = algo_params.thresh_low; // 75000;
     qdepth_t upperQdepthThreshold = algo_params.thresh_high; // 750000;
+    uint32_t roundIntervalInMicroSec = algo_params.round_interval_ms * 1000; // 20000;
+    
+    printf("Round interval is %d usec\n", roundIntervalInMicroSec); 
 
     if(algo_params.no_algo){
         // Set the initial rwnd to zero

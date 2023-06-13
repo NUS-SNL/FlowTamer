@@ -17,7 +17,7 @@ tm.set_app_pool_size(4, 20)
 tm.set_app_pool_size(0, 266240)
 
 # Step 2: Disable app pool usage on the queue requiring deep buffer
-tm.disable_q_app_pool_usage(129, 0)
+tm.disable_q_app_pool_usage(129, 0) # 129 is the dev port
 # Step 3: Set the queue's guaranteed min limit
 # - This limit somehow cannot be set equal to the app pool 0 size. 
 # - In most cases, it goes up to 80% of app pool 0. But sometimes, other limits 
