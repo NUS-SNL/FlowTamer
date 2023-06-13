@@ -9,9 +9,10 @@
     inNetworkCC State Variables with initial values
 */
 working_copy_t currentWorkingCopy = 0;
-port_t egressPort = 129;
+port_t egressPort = 133;
+uint32_t roundIntervalInMicroSec = 80000;
 
-rwnd_t minimumRwnd = 118;
+rwnd_t minimumRwnd = 15000;
 rwnd_t maximumRwnd = 1751122; // 50 MB for RTT of 300ms ==> 50/30 = 1.67MB for RTT of 10ms
 rwnd_t currentRwnd = maximumRwnd;
 rwnd_t rwndIncrement = 1500;

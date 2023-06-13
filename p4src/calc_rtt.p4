@@ -66,7 +66,7 @@ control CalculateRTT(in bit<48> egress_global_ts, inout header_t hdr, inout egre
     RegisterAction<hash_table_entry, bit<16>, bit<32>>(hash_table1) reg_insert_hash_table1 = {
         void apply(inout hash_table_entry reg_value, out bit<32> rv){
 
-            rv = HASH_TABLE_OP_FAILURE; // default to tell that insertion FAILED
+            // rv = HASH_TABLE_OP_FAILURE; // default to tell that insertion FAILED
             hash_table_entry orig_val = reg_value;
 
             bool entry_is_empty = (orig_val.fp == 0);
@@ -77,6 +77,9 @@ control CalculateRTT(in bit<48> egress_global_ts, inout header_t hdr, inout egre
                 reg_value.ts = eg_meta.curr_time;
                 rv = HASH_TABLE_OP_SUCCESS;
             }
+            else{
+                rv = HASH_TABLE_OP_FAILURE;
+            }
 
         }
     };
@@ -84,7 +87,7 @@ control CalculateRTT(in bit<48> egress_global_ts, inout header_t hdr, inout egre
     RegisterAction<hash_table_entry, bit<16>, bit<32>>(hash_table1) reg_lookup_hash_table1 = {
         void apply(inout hash_table_entry reg_value, out bit<32> rv){
 
-            rv = 0; // default to tell that lookup FAILED. BUG?: This HAS to be 0. 32w1 won't work.
+            // rv = 0; // default to tell that lookup FAILED. BUG?: This HAS to be 0. 32w1 won't work.
             hash_table_entry orig_val = reg_value;
 
             bool entry_matched = (orig_val.fp == pkt_fingerprint);
@@ -94,6 +97,9 @@ control CalculateRTT(in bit<48> egress_global_ts, inout header_t hdr, inout egre
                 reg_value.fp = 0;
                 reg_value.ts = 0;
                 rv = orig_val.ts;
+            }
+            else{
+                rv = 0;
             }
 
         }

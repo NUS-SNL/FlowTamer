@@ -25,7 +25,7 @@ const bit<8> TCP_FLAG_SYN = 2;
 const bit<8> TCP_FLAG_RST = 4;
 const bit<8> TCP_FLAG_PSH = 8;
 const bit<8> TCP_FLAG_ACK = 16;
-const bit<8> INGRESS_PORT = 129;
+const bit<8> INGRESS_PORT = 133;
 
 control SwitchIngress(
     inout header_t hdr,
@@ -98,7 +98,7 @@ control SwitchIngress(
 			else { l2_forward.apply(); }
 		}
 
-		if(hdr.tcp.isValid() && (hdr.tcp.flags & 0b00000010) !=1){ // && ig_meta.port_meta.apply_algo ==
+		if(hdr.tcp.isValid() && (hdr.tcp.flags & 0b00000010) != 2){ // && ig_meta.port_meta.apply_algo ==
 			// TCP pkts except SYN and SYN-ACK
 			
 			if(ig_meta.base_rwnd != 0){ 
@@ -109,9 +109,12 @@ control SwitchIngress(
 				// ASSUMPTION: by this point 'rtt_scaled_rwnd' variable would be WS adjusted and no more than 65535. BUG possibility for high new_rwnd/rtt and low WS
 				if(hdr.innetworkcc_info.isValid()){
 					hdr.innetworkcc_info.algo_rwnd = ig_meta.base_rwnd;
-					hdr.innetworkcc_info.final_rwnd   = ig_meta.rtt_scaled_rwnd[15:0];
+					hdr.innetworkcc_info.final_rwnd = ig_meta.rtt_scaled_rwnd[15:0];
+					ig_meta.csum_update_type = 1;
+					
 				}else {
-				hdr.tcp.window = min(hdr.tcp.window, ig_meta.rtt_scaled_rwnd[15:0]);
+					hdr.tcp.window = min(hdr.tcp.window, ig_meta.rtt_scaled_rwnd[15:0]);
+					ig_meta.csum_update_type = 0;
 				}
 				
 			}		

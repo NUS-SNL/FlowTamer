@@ -234,7 +234,7 @@ def main():
                     flow_rwnds[src_port] = curr_flow_rwnd_tracker
                 else:
                     curr_flow_rwnd_tracker = flow_rwnds[src_port]
-                curr_flow_rwnd_tracker.track(time, final_rwnd)
+                # curr_flow_rwnd_tracker.track(time, final_rwnd)
 
                 # algo rwnd processing
                 if algo_rwnd_tracker == None:
@@ -243,7 +243,7 @@ def main():
                     algo_rwnd_tracker.track(time, algo_rwnd)
 
                 # algo qdepth processing
-                algo_qdepth_tracker.track(time, qdepth_sum, qdepth_pkt_count)
+                # algo_qdepth_tracker.track(time, qdepth_sum, qdepth_pkt_count)
                 
                 # qdepth moving window processing
                 qdepth_tracker.track(time, qdepth)

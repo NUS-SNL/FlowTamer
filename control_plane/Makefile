@@ -24,7 +24,8 @@ PCAPPP_LIBS += -Wl,--whole-archive -lrte_pci -lrte_bus_pci -lrte_bus_vdev -lrte_
 CPPFLAGS = -I$(SDE_INSTALL)/include -I$(CURR_DIR) $(PCAPPP_INCLUDES) -DSDE_INSTALL=\"$(SDE_INSTALL)\" \
            -DPROG_NAME=\"$(PROG)\" -D__DIR__=\"${CURDIR}\"
 CXXFLAGS = -std=c++11 -Wall -Wextra -Werror $(PCAPPP_BUILD_FLAGS)
-BF_LIBS  = -L$(SDE_INSTALL)/lib -lbf_switchd_lib -ldriver -lbfutils -lbfsys
+# BF_LIBS  = -L$(SDE_INSTALL)/lib -lbf_switchd_lib -ldriver -lbfutils -lbfsys
+BF_LIBS  = -L$(SDE_INSTALL)/lib -ldriver -lbfutils -lbfsys
 LDLIBS   = $(BF_LIBS) $(PCAPPP_LIBS) -lm -ldl -lpthread
 LDFLAGS  = -Wl,-rpath,$(SDE_INSTALL)/lib
 

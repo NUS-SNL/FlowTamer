@@ -140,6 +140,7 @@ struct ingress_metadata_t {
     bit<16> l4_payload_checksum;
     rwnd_t base_rwnd;
     rwnd_t rtt_scaled_rwnd;
+    bit<1> csum_update_type;
     // port_metadata_t port_meta;
 }
 

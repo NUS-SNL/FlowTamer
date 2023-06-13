@@ -100,7 +100,8 @@ parser SwitchIngressParser(
             hdr.tcp.window,
             hdr.tcp.checksum,
             hdr.tcp.urgent_ptr });
-        ig_meta.l4_payload_checksum = tcp_checksum.get();        
+        ig_meta.l4_payload_checksum = tcp_checksum.get();
+        ig_meta.csum_update_type = 0;
 		transition accept;
 	}
 
@@ -129,6 +130,7 @@ parser SwitchIngressParser(
             });
 
         ig_meta.l4_payload_checksum = tcp_checksum.get();
+        ig_meta.csum_update_type = 1;
 
 		transition accept;
     }
@@ -147,7 +149,8 @@ control SwitchIngressDeparser(
     Checksum() tcp_checksum;    
     apply {
 
-        if(hdr.innetworkcc_info.isValid()){
+        // if(hdr.innetworkcc_info.isValid()){
+        if(ig_meta.csum_update_type == 1){
             hdr.tcp.checksum = tcp_checksum.update({
                 hdr.ipv4.src_addr,
                 hdr.ipv4.dst_addr,
@@ -171,7 +174,7 @@ control SwitchIngressDeparser(
                 ig_meta.l4_payload_checksum
             }); 
         }
-        else{
+        else {
             hdr.tcp.checksum = tcp_checksum.update({
                 hdr.ipv4.src_addr,
                 hdr.ipv4.dst_addr,
