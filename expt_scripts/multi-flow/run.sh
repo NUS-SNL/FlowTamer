@@ -39,7 +39,7 @@ single_flow() {
     sudo ip netns exec ens114f1 iperf -s -i 1 -p $port1 -Z $cca > $iperfres1file 2>&1 &
     sudo ip netns exec ens114f1 iperf -s -i 1 -p $port2 -Z $cca > $iperfres2file 2>&1 &
     sudo ip netns exec ens114f1 tcpdump -i ens114f1 -s 80 -w ${data_dir}/recv_${cca}.pcap tcp &
-    sudo ip netns exec ens114f0 tcpdump -i ens114f0 -s 80 -w ${data_dir}/send_post_mm_${cca}.pcap tcp &
+    sudo ip netns exec ens114f0 tcpdump -i ens114f0 -s 80 -w ${data_dir}/post_mm_${cca}.pcap tcp &
     sleep 1
 
     sudo ip netns exec ens114f0 su --command="mm-delay $owd1 ./_sender.sh $cca $rtt1 $port1 $data_dir" $USER &
